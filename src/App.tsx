@@ -1,42 +1,55 @@
-import { useState } from 'react'
+import { lazy, Suspense, useRef, useState } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useHealthData } from './hooks/useHealthData'
 import { Auth } from './components/Auth'
-import { ImportPanel } from './components/ImportPanel'
-import { Insights } from './views/Insights'
-import { Longevity } from './views/Longevity'
-import { Sleep } from './views/Sleep'
-import { Recovery } from './views/Recovery'
-import { Strain } from './views/Strain'
-import { Activity } from './views/Activity'
+import { Home } from './views/Home'
 import { useDerived, RANGES } from './views/common'
 import { Segmented, Spinner } from './components/ui'
 import { supabase, isConfigured } from './lib/supabase'
 import { useTheme, type ThemeChoice } from './lib/theme'
 import { daysAgoISO } from './lib/format'
+import { Link, useRouter, useScrollReset } from './lib/router'
+import { metricTitle } from './lib/metricTitle'
 
-type Tab = 'insights' | 'longevity' | 'sleep' | 'heart' | 'move' | 'import'
+/**
+ * Detail pages pull in the chart library, which is by far the largest thing in
+ * the bundle. Loading them on demand keeps it off the landing page, which
+ * draws its sparklines as inline SVG instead.
+ */
+const Insights = lazy(() => import('./views/Insights').then((m) => ({ default: m.Insights })))
+const Longevity = lazy(() => import('./views/Longevity').then((m) => ({ default: m.Longevity })))
+const Sleep = lazy(() => import('./views/Sleep').then((m) => ({ default: m.Sleep })))
+const Recovery = lazy(() => import('./views/Recovery').then((m) => ({ default: m.Recovery })))
+const Strain = lazy(() => import('./views/Strain').then((m) => ({ default: m.Strain })))
+const Activity = lazy(() => import('./views/Activity').then((m) => ({ default: m.Activity })))
+const MetricDetail = lazy(() =>
+  import('./views/MetricDetail').then((m) => ({ default: m.MetricDetail })))
+const ImportPanel = lazy(() =>
+  import('./components/ImportPanel').then((m) => ({ default: m.ImportPanel })))
 
-/** Tabs follow the Health app's own categories rather than the shape of the
- *  underlying exports, so Recovery sits under Heart and training sits under
- *  Move alongside everyday activity. */
-const TABS: Array<{ id: Tab; label: string; short: string; icon: string }> = [
-  { id: 'insights',  label: 'Insights',  short: 'Insights',  icon: 'sparkle' },
-  { id: 'longevity', label: 'Longevity', short: 'Longevity', icon: 'leaf' },
-  { id: 'sleep',     label: 'Sleep',     short: 'Sleep',     icon: 'moon' },
-  { id: 'heart',     label: 'Heart',     short: 'Heart',     icon: 'heart' },
-  { id: 'move',      label: 'Move',      short: 'Move',      icon: 'flame' },
-  { id: 'import',    label: 'Import',    short: 'Import',    icon: 'arrow' },
+interface TabDef { path: string; label: string; short: string; icon: string }
+
+const TABS: TabDef[] = [
+  { path: '/',          label: 'Summary',   short: 'Summary', icon: 'grid' },
+  { path: '/insights',  label: 'Insights',  short: 'Insights', icon: 'sparkle' },
+  { path: '/longevity', label: 'Longevity', short: 'Longevity', icon: 'leaf' },
+  { path: '/sleep',     label: 'Sleep',     short: 'Sleep', icon: 'moon' },
+  { path: '/heart',     label: 'Heart',     short: 'Heart', icon: 'heart' },
+  { path: '/move',      label: 'Move',      short: 'Move', icon: 'flame' },
+  { path: '/import',    label: 'Import',    short: 'Import', icon: 'arrow' },
 ]
 
 export default function App() {
   const { session, loading: authLoading, user } = useAuth()
-  const [tab, setTab] = useState<Tab>('insights')
+  const { route } = useRouter()
   const [range, setRange] = useState<string>('90')
+  const mainRef = useRef<HTMLElement>(null)
 
   const since = range === '1825' ? null : daysAgoISO(Number(range))
   const { data, imports, loading, error, reload } = useHealthData(user?.id ?? null, since)
   const derived = useDerived(data, Number(range))
+
+  useScrollReset(route.path, mainRef)
 
   if (!isConfigured) {
     return (
@@ -63,19 +76,22 @@ export default function App() {
 
   if (!session) return <Auth />
 
-  const active = TABS.find((t) => t.id === tab)
+  const isMetric = route.segments[0] === 'metric'
+  const metricKey = isMetric ? route.segments[1] ?? '' : ''
+  const tab = TABS.find((t) => t.path === route.path)
+  const title = isMetric ? metricTitle(metricKey) : (tab?.label ?? 'Summary')
 
   return (
     <div className="min-h-screen">
       <Header
-        title={active?.label ?? ''}
+        title={title}
         email={user?.email ?? ''}
         range={range}
         onRange={setRange}
         onReload={reload}
         loading={loading}
-        tab={tab}
-        onTab={setTab}
+        showBack={isMetric || !tab}
+        currentPath={route.path}
       />
 
       <div className="mx-auto w-full max-w-5xl px-4 pb-28 sm:px-6 sm:pb-10">
@@ -88,23 +104,31 @@ export default function App() {
           </p>
         )}
 
-        {loading && tab !== 'import' ? (
+        {loading && route.path !== '/import' ? (
           <div className="flex justify-center py-20"><Spinner label="Loading your data" /></div>
         ) : (
-          <main>
-            {tab === 'insights' && <Insights d={derived} />}
-            {tab === 'longevity' && <Longevity d={derived} />}
-            {tab === 'sleep' && <Sleep d={derived} />}
-            {tab === 'heart' && <Recovery d={derived} />}
-            {tab === 'move' && <Move d={derived} />}
-            {tab === 'import' && user && (
-              <ImportPanel userId={user.id} imports={imports} onDone={reload} />
-            )}
+          <main ref={mainRef} className="outline-none">
+            <Suspense
+              fallback={
+                <div className="flex justify-center py-20"><Spinner label="Loading" /></div>
+              }
+            >
+              {isMetric ? <MetricDetail d={derived} metricKey={metricKey} />
+                : route.path === '/' ? <Home d={derived} />
+                : route.path === '/insights' ? <Insights d={derived} />
+                : route.path === '/longevity' ? <Longevity d={derived} />
+                : route.path === '/sleep' ? <Sleep d={derived} />
+                : route.path === '/heart' ? <Recovery d={derived} />
+                : route.path === '/move' ? <Move d={derived} />
+                : route.path === '/import' && user
+                  ? <ImportPanel userId={user.id} imports={imports} onDone={reload} />
+                  : <NotFound />}
+            </Suspense>
           </main>
         )}
       </div>
 
-      <TabBar tab={tab} onTab={setTab} />
+      <TabBar currentPath={route.path} />
     </div>
   )
 }
@@ -120,8 +144,22 @@ function Move({ d }: { d: ReturnType<typeof useDerived> }) {
   )
 }
 
+function NotFound() {
+  return (
+    <div className="rounded-[var(--r-card)] bg-[var(--surface-1)] p-10 text-center">
+      <p className="t-headline text-[var(--label)]">Page not found</p>
+      <p className="t-subhead mx-auto mt-1.5 max-w-md text-[var(--label-2)]">
+        That link does not match anything in this dashboard.
+      </p>
+      <Link to="/" className="t-body mt-4 inline-block font-medium text-[var(--tint)]">
+        Back to summary
+      </Link>
+    </div>
+  )
+}
+
 function Header({
-  title, email, range, onRange, onReload, loading, tab, onTab,
+  title, email, range, onRange, onReload, loading, showBack, currentPath,
 }: {
   title: string
   email: string
@@ -129,18 +167,35 @@ function Header({
   onRange: (r: string) => void
   onReload: () => void
   loading: boolean
-  tab: Tab
-  onTab: (t: Tab) => void
+  showBack: boolean
+  currentPath: string
 }) {
   const { choice, setChoice } = useTheme()
+  const { back } = useRouter()
 
   return (
     <header className="sticky top-0 z-20 mb-4 border-b border-[var(--separator)] bg-[var(--bg-grouped)]/85 backdrop-blur-xl">
-      <div className="mx-auto w-full max-w-5xl px-4 pt-4 pb-3 sm:px-6">
+      <div className="mx-auto w-full max-w-5xl px-4 pt-3 pb-3 sm:px-6 sm:pt-4">
+        {showBack && (
+          <button
+            onClick={back}
+            className="t-subhead -ml-1 mb-1 flex items-center gap-0.5 font-medium text-[var(--tint)]"
+          >
+            <svg
+              width={20} height={20} viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth={2.5}
+              strokeLinecap="round" strokeLinejoin="round" aria-hidden
+            >
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+            Back
+          </button>
+        )}
+
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <div className="min-w-0">
             <h1 className="t-large-title text-[var(--label)]">{title}</h1>
-            <p className="t-caption truncate text-[var(--label-3)]">{email}</p>
+            {!showBack && <p className="t-caption truncate text-[var(--label-3)]">{email}</p>}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -177,21 +232,20 @@ function Header({
         </div>
 
         {/* Wide screens get the tab row inline; phones use the glass tab bar. */}
-        <nav aria-label="Sections" className="mt-3 hidden gap-1 sm:flex">
+        <nav aria-label="Sections" className="mt-3 hidden flex-wrap gap-1 sm:flex">
           {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => onTab(t.id)}
-              aria-current={tab === t.id ? 'page' : undefined}
+            <Link
+              key={t.path}
+              to={t.path}
               className={
                 't-footnote rounded-[var(--r-pill)] px-3.5 py-1.5 font-medium transition-colors ' +
-                (tab === t.id
+                (currentPath === t.path
                   ? 'bg-[var(--tint)] text-white'
                   : 'text-[var(--label-2)] hover:bg-[var(--fill-2)]')
               }
             >
               {t.label}
-            </button>
+            </Link>
           ))}
         </nav>
       </div>
@@ -200,7 +254,11 @@ function Header({
 }
 
 /** iOS-style glass tab bar, floating clear of the home indicator. */
-function TabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
+function TabBar({ currentPath }: { currentPath: string }) {
+  // Six targets is already tight at 390px, so Longevity lives in the summary
+  // page's Browse row on phones rather than taking a seventh slot here.
+  const phoneTabs = TABS.filter((t) => t.path !== '/longevity')
+
   return (
     <nav
       aria-label="Sections"
@@ -208,21 +266,23 @@ function TabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
     >
       <div className="glass mx-3 mb-3 rounded-[26px] px-1 py-1">
         <ul className="flex">
-          {TABS.map((t) => (
-            <li key={t.id} className="flex-1">
-              <button
-                onClick={() => onTab(t.id)}
-                aria-current={tab === t.id ? 'page' : undefined}
-                className={
-                  'flex w-full flex-col items-center gap-0.5 rounded-[20px] py-1.5 transition-colors ' +
-                  (tab === t.id ? 'text-[var(--tint)]' : 'text-[var(--label-3)]')
-                }
-              >
-                <TabIcon name={t.icon} active={tab === t.id} />
-                <span className="t-caption-2 font-medium">{t.short}</span>
-              </button>
-            </li>
-          ))}
+          {phoneTabs.map((t) => {
+            const active = currentPath === t.path
+            return (
+              <li key={t.path} className="flex-1">
+                <Link
+                  to={t.path}
+                  className={
+                    'flex w-full flex-col items-center gap-0.5 rounded-[20px] py-1.5 transition-colors ' +
+                    (active ? 'text-[var(--tint)]' : 'text-[var(--label-3)]')
+                  }
+                >
+                  <TabIcon name={t.icon} active={active} />
+                  <span className="t-caption-2 font-medium">{t.short}</span>
+                </Link>
+              </li>
+            )
+          })}
         </ul>
       </div>
     </nav>
@@ -241,6 +301,8 @@ function TabIcon({ name, active }: { name: string; active: boolean }) {
   }
 
   switch (name) {
+    case 'grid':
+      return <svg {...common}><rect x="3" y="3" width="7.5" height="7.5" rx="2" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="2" /><rect x="3" y="13.5" width="7.5" height="7.5" rx="2" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2" /></svg>
     case 'sparkle':
       return <svg {...common}><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" /><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" /></svg>
     case 'leaf':

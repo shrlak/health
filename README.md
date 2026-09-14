@@ -103,8 +103,8 @@ root-served host.
 
 ## Deploying to GitHub Pages
 
-`.github/workflows/deploy.yml` builds and publishes on every push to the
-default branch, and can be run by hand from the Actions tab.
+`.github/workflows/deploy.yml` builds and publishes on every push to `main`,
+and can be run by hand from the Actions tab.
 
 **One-time setup:** in the repository, go to **Settings → Pages** and set
 **Source** to **GitHub Actions**. That is the only manual step; nothing else

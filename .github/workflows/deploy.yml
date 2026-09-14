@@ -2,10 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    # Covers the branch as it stands today and a later rename to main.
-    branches:
-      - main
-      - claude/zealous-franklin-bkrhu8
+    branches: [main]
   workflow_dispatch:
 
 # Allow the workflow to publish to Pages.
