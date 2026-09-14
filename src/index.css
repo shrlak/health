@@ -1,0 +1,212 @@
+@import "tailwindcss";
+
+/* ----------------------------------------------------------------- tokens
+   Apple's system palette and materials. Light values on :root; dark values
+   redefined under both the OS media query and an explicit [data-theme="dark"]
+   stamp, so the in-app toggle wins in either direction. */
+:root {
+  color-scheme: light;
+
+  /* Grouped-background stack, as the Health app uses it: the scroll view sits
+     on the grouped background and cards sit on the elevated surface. */
+  --bg-grouped:   #f2f2f7;
+  --surface-1:    #ffffff;
+  --surface-2:    #f2f2f7;
+  --surface-3:    #e5e5ea;
+
+  --separator:    rgb(60 60 67 / 0.18);
+  --separator-opaque: #c6c6c8;
+
+  --label:        #000000;
+  --label-2:      rgb(60 60 67 / 0.62);
+  --label-3:      rgb(60 60 67 / 0.42);
+
+  --tint:         #006bd4;
+  --fill:         rgb(120 120 128 / 0.12);
+  --fill-2:       rgb(120 120 128 / 0.08);
+
+  /* Liquid Glass: a translucent layer that samples what is behind it. */
+  --glass:        rgb(255 255 255 / 0.72);
+  --glass-border: rgb(255 255 255 / 0.5);
+  --glass-shadow: 0 1px 3px rgb(0 0 0 / 0.06), 0 8px 24px rgb(0 0 0 / 0.06);
+
+  --series-1: #cd0441;  /* heart */
+  --series-2: #006bd4;  /* hearing */
+  --series-3: #9b5f04;  /* move */
+  --series-4: #00889e;  /* respiratory */
+  --series-5: #a104da;  /* mental wellbeing */
+  --series-6: #04862f;  /* nutrition */
+  --series-7: #5945ff;  /* sleep */
+  --series-8: #836d00;  /* metabolic */
+
+  --good:     #1f8b3a;
+  --warning:  #c2540a;
+  --serious:  #b4560f;
+  --critical: #c5182b;
+
+  --grid: #e5e5ea;
+
+  /* iOS uses continuous ("squircle") corners; a large radius is the closest
+     approximation available in CSS. */
+  --r-card: 20px;
+  --r-tile: 16px;
+  --r-pill: 980px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+
+    --bg-grouped:   #000000;
+    --surface-1:    #1c1c1e;
+    --surface-2:    #2c2c2e;
+    --surface-3:    #3a3a3c;
+
+    --separator:    rgb(84 84 88 / 0.6);
+    --separator-opaque: #38383a;
+
+    --label:        #ffffff;
+    --label-2:      rgb(235 235 245 / 0.62);
+    --label-3:      rgb(235 235 245 / 0.4);
+
+    --tint:         #0282fe;
+    --fill:         rgb(120 120 128 / 0.24);
+    --fill-2:       rgb(120 120 128 / 0.16);
+
+    --glass:        rgb(30 30 32 / 0.72);
+    --glass-border: rgb(255 255 255 / 0.1);
+    --glass-shadow: 0 1px 3px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.35);
+
+    --series-1: #f70550;
+    --series-2: #0282fe;
+    --series-3: #bb7304;
+    --series-4: #0797ab;
+    --series-5: #bf26ff;
+    --series-6: #05a23b;
+    --series-7: #6f70fe;
+    --series-8: #9e8402;
+
+    --good:     #30d158;
+    --warning:  #ffd60a;
+    --serious:  #ff9f0a;
+    --critical: #ff453a;
+
+    --grid: #3a3a3c;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-grouped:   #000000;
+  --surface-1:    #1c1c1e;
+  --surface-2:    #2c2c2e;
+  --surface-3:    #3a3a3c;
+
+  --separator:    rgb(84 84 88 / 0.6);
+  --separator-opaque: #38383a;
+
+  --label:        #ffffff;
+  --label-2:      rgb(235 235 245 / 0.62);
+  --label-3:      rgb(235 235 245 / 0.4);
+
+  --tint:         #0282fe;
+  --fill:         rgb(120 120 128 / 0.24);
+  --fill-2:       rgb(120 120 128 / 0.16);
+
+  --glass:        rgb(30 30 32 / 0.72);
+  --glass-border: rgb(255 255 255 / 0.1);
+  --glass-shadow: 0 1px 3px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.35);
+
+  --series-1: #f70550;
+  --series-2: #0282fe;
+  --series-3: #bb7304;
+  --series-4: #0797ab;
+  --series-5: #bf26ff;
+  --series-6: #05a23b;
+  --series-7: #6f70fe;
+  --series-8: #9e8402;
+
+  --good:     #30d158;
+  --warning:  #ffd60a;
+  --serious:  #ff9f0a;
+  --critical: #ff453a;
+
+  --grid: #3a3a3c;
+}
+
+@theme inline {
+  --color-grouped: var(--bg-grouped);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-label: var(--label);
+  --color-label-2: var(--label-2);
+  --color-label-3: var(--label-3);
+  --color-tint: var(--tint);
+  --color-separator: var(--separator);
+  --color-good: var(--good);
+  --color-warning: var(--warning);
+  --color-serious: var(--serious);
+  --color-critical: var(--critical);
+  --radius-card: var(--r-card);
+  --radius-tile: var(--r-tile);
+}
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg-grouped);
+  color: var(--label);
+  /* SF Pro on Apple platforms, with a sane fallback elsewhere. */
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* iOS type scale, the pieces of it this app actually uses. */
+.t-large-title { font-size: 34px; line-height: 41px; font-weight: 700; letter-spacing: 0.37px; }
+.t-title-1     { font-size: 28px; line-height: 34px; font-weight: 700; letter-spacing: 0.36px; }
+.t-title-2     { font-size: 22px; line-height: 28px; font-weight: 700; letter-spacing: 0.35px; }
+.t-title-3     { font-size: 20px; line-height: 25px; font-weight: 600; letter-spacing: 0.38px; }
+.t-headline    { font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: -0.41px; }
+.t-body        { font-size: 17px; line-height: 22px; font-weight: 400; letter-spacing: -0.41px; }
+.t-callout     { font-size: 16px; line-height: 21px; font-weight: 400; letter-spacing: -0.32px; }
+.t-subhead     { font-size: 15px; line-height: 20px; font-weight: 400; letter-spacing: -0.24px; }
+.t-footnote    { font-size: 13px; line-height: 18px; font-weight: 400; letter-spacing: -0.08px; }
+.t-caption     { font-size: 12px; line-height: 16px; font-weight: 400; }
+.t-caption-2   { font-size: 11px; line-height: 13px; font-weight: 400; letter-spacing: 0.07px; }
+
+/* Numerals must not jitter as values animate or update. */
+.tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+/* Liquid Glass. Falls back to the flat surface where backdrop-filter is
+   unavailable, so nothing becomes unreadable. */
+.glass {
+  background: var(--surface-1);
+  box-shadow: var(--glass-shadow);
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .glass {
+    background: var(--glass);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border: 0.5px solid var(--glass-border);
+  }
+}
+
+.hairline { border-color: var(--separator); }
+
+.recharts-surface { overflow: visible; }
+
+/* Respect a reduced-motion preference for every transition in the app. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
