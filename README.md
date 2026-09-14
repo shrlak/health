@@ -97,21 +97,62 @@ you will get a confirmation link before the first sign-in works.
 | `npm run lint` | oxlint |
 | `npm run harness` | Builds `dist-harness/`, a local page that renders every view against generated data — useful for checking layout and dark mode without importing anything |
 
-## Deploying
+`npm run build` writes to `dist/`. Set `VITE_BASE` to serve from a subpath
+(`VITE_BASE=/health/ npm run build`); it defaults to `/` for local dev and any
+root-served host.
 
-The app is a static bundle plus Supabase, so any static host works. For Vercel,
-`vercel.json` is already set up:
+## Deploying to GitHub Pages
 
-```bash
-npx vercel --prod
-```
+`.github/workflows/deploy.yml` builds and publishes on every push to the
+default branch, and can be run by hand from the Actions tab.
 
-Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in the host's
-environment variables. Both are public by design — Row Level Security is what
-protects the data, and every table carries an owner-only policy.
+**One-time setup:** in the repository, go to **Settings → Pages** and set
+**Source** to **GitHub Actions**. That is the only manual step; nothing else
+needs configuring.
 
-To install it on a phone home screen, open the deployed URL in Safari and choose
-**Add to Home Screen**.
+The site then lands at `https://<your-username>.github.io/health/`.
+
+A few things the workflow handles that catch people out:
+
+- A project site is served from `/<repo>/`, not from the root, so the build
+  needs `base` set or every asset 404s. The workflow derives it from the
+  repository name, so renaming the repo does not break it.
+- The same prefix applies to the import Web Worker, which Vite rewrites
+  automatically once `base` is right.
+- It drops a `.nojekyll` file, so Pages serves the output as-is instead of
+  running it through Jekyll.
+- It runs the typecheck and the parser tests before building, so a broken
+  commit fails in CI rather than replacing a working site.
+
+### Environment variables
+
+The Supabase URL and publishable key are inlined at build time. The workflow
+falls back to this project's values, so it deploys with no setup. To point a
+fork at a different Supabase project, add repository **variables** (Settings →
+Secrets and variables → Actions → Variables) named `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_PUBLISHABLE_KEY`; they take precedence.
+
+These belong in variables rather than secrets because they are public by
+design — a publishable key identifies the project and nothing more, and anyone
+can read it out of the deployed bundle regardless. Row Level Security is what
+protects the data.
+
+### Close sign-ups once you have an account
+
+**Worth doing before you share the URL.** A Pages site is public, and Supabase
+allows anyone to register by default — so a stranger who finds the link could
+create an account in your project. Row Level Security means they would see
+none of your data, but they would still land in your auth table and count
+against your quota.
+
+Once you have signed in for the first time, turn registration off: Supabase
+dashboard → **Authentication → Sign In / Providers → Email**, and disable
+**Allow new users to sign up**. Your existing session keeps working.
+
+### Adding it to a phone home screen
+
+Open the deployed URL in Safari and choose **Add to Home Screen**. It opens
+full-screen, without browser chrome.
 
 ## Data model
 
