@@ -3,15 +3,18 @@
  * layout, palette and dark mode can be checked without a Supabase session.
  * Not part of the app bundle -- built only by `npm run preview:harness`.
  */
-import { StrictMode, useState } from 'react'
+import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ThemeProvider, useTheme } from '../../src/lib/theme'
+import { RouterProvider, useRouter } from '../../src/lib/router'
+import { Home } from '../../src/views/Home'
 import { Insights } from '../../src/views/Insights'
 import { Longevity } from '../../src/views/Longevity'
 import { Sleep } from '../../src/views/Sleep'
 import { Recovery } from '../../src/views/Recovery'
 import { Strain } from '../../src/views/Strain'
 import { Activity } from '../../src/views/Activity'
+import { MetricDetail } from '../../src/views/MetricDetail'
 import { useDerived } from '../../src/views/common'
 import type { HealthData } from '../../src/lib/analytics'
 import type { Cycle, DailyMetric, Recovery as Rec, SleepSession, Workout } from '../../src/lib/types'
@@ -124,30 +127,43 @@ function build(days: number): HealthData {
 }
 
 const DATA = build(120)
-const VIEWS = ['insights', 'longevity', 'sleep', 'recovery', 'strain', 'activity'] as const
-type View = (typeof VIEWS)[number]
 
+const SHORTCUTS = [
+  ['home', '/'],
+  ['insights', '/insights'],
+  ['longevity', '/longevity'],
+  ['sleep', '/sleep'],
+  ['recovery', '/heart'],
+  ['strain', '/move'],
+  ['activity', '/move'],
+] as const
+
+/** Mirrors the real app's routing so navigation can be exercised end to end,
+ *  without needing a Supabase session. */
 function Harness() {
-  const [view, setView] = useState<View>('insights')
   const { choice, setChoice } = useTheme()
+  const { route, navigate } = useRouter()
   const d = useDerived(DATA, 120)
+
+  const isMetric = route.segments[0] === 'metric'
+  const metricKey = isMetric ? route.segments[1] ?? '' : ''
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-5xl px-4 py-4 sm:px-6">
       <div className="mb-4 flex flex-wrap gap-2">
-        {VIEWS.map((v) => (
+        {SHORTCUTS.map(([name, path]) => (
           <button
-            key={v}
-            data-view={v}
-            onClick={() => setView(v)}
+            key={name}
+            data-view={name}
+            onClick={() => navigate(path)}
             className={
               't-footnote rounded-[var(--r-pill)] px-3.5 py-1.5 font-medium capitalize ' +
-              (view === v
+              (route.path === path
                 ? 'bg-[var(--tint)] text-white'
                 : 'bg-[var(--fill)] text-[var(--label-2)]')
             }
           >
-            {v}
+            {name}
           </button>
         ))}
         <button
@@ -159,12 +175,14 @@ function Harness() {
         </button>
       </div>
 
-      {view === 'insights' && <Insights d={d} />}
-      {view === 'longevity' && <Longevity d={d} />}
-      {view === 'sleep' && <Sleep d={d} />}
-      {view === 'recovery' && <Recovery d={d} />}
-      {view === 'strain' && <Strain d={d} />}
-      {view === 'activity' && <Activity d={d} />}
+      {isMetric ? <MetricDetail d={d} metricKey={metricKey} />
+        : route.path === '/' ? <Home d={d} />
+        : route.path === '/insights' ? <Insights d={d} />
+        : route.path === '/longevity' ? <Longevity d={d} />
+        : route.path === '/sleep' ? <Sleep d={d} />
+        : route.path === '/heart' ? <Recovery d={d} />
+        : route.path === '/move' ? <><Strain d={d} /><div className="mt-6"><Activity d={d} /></div></>
+        : <p className="t-body">No route.</p>}
     </div>
   )
 }
@@ -172,7 +190,9 @@ function Harness() {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
-      <Harness />
+      <RouterProvider>
+        <Harness />
+      </RouterProvider>
     </ThemeProvider>
   </StrictMode>,
 )
