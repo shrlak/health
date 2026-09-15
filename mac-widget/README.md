@@ -139,6 +139,8 @@ onto the desktop or into Notification Center.
 | Widget is blank or stuck on placeholder text | Open the Whoop app. It fetches the same endpoint the same way and has room to say what failed. |
 | **Whoop** is not in the Edit Widgets list | The app has not been run from a stable location. Do step 7. |
 | The number looks stale | WidgetKit budgets refreshes. Open the app and press **Refresh**, which reloads every timeline. |
+| Numbers missing, or cut off at an edge | A build from before the layouts owned their margins. `git pull`, then rebuild with **⌘R** — the widget reloads once the new app has launched. |
+| Widget is grey, washed out, or blank until you click the desktop | macOS renders desktop widgets without colour while another window is in front. See [When the desktop is not in front](#when-the-desktop-is-not-in-front). |
 | A wall of `com.apple.linkd.autoShortcut` errors in the console | Not a failure, and it only appears once the app has launched. Every sandboxed app tries to register with the Shortcuts service at startup and the sandbox denies it; this one uses no App Intents, so nothing is lost. Filter the Xcode console by `Whoop` to hide it. |
 
 ## Where the token lives
@@ -164,13 +166,39 @@ assuming today.
 ```
 small                          medium
 ┌──────────────┐               ┌────────────────────────────────┐
-│  ◜◝          │               │   ◜◝     Sun 14 Sep            │
-│ ◟  ◞  82%    │               │  ◟  ◞    STRAIN  5.0  SLEEP 9h │
-│              │               │   82%    HRV 84 ms  RHR 45 bpm │
-│ STRAIN  5.0  │               │ RECOVERY ╱╲__╱‾╲__╱‾           │
-│ SLEEP   9h32 │               │                                │
-└──────────────┘               └────────────────────────────────┘
+│     ◜◝       │               │    ◜◝    Sun 14 Sep            │
+│    ◟82%◞     │               │   ◟82%◞  STRAIN 5.0  SLEEP 9h  │
+│   RECOVERY   │               │  RECOVERY HRV 84 ms  RHR 45bpm │
+│              │               │          ╱╲__╱‾╲__╱‾           │
+│ STRAIN SLEEP │               └────────────────────────────────┘
+│ 5.0    9h32  │
+└──────────────┘
 ```
+
+Both sizes set their own margins rather than taking the system's, which are
+sized for a phone's home screen and left the medium layout a few points short
+of fitting. A widget clips what does not fit instead of shrinking it, so those
+few points cost whole rows of numbers.
+
+## When the desktop is not in front
+
+macOS only draws a desktop widget in colour while the desktop itself is the
+front-most thing. Click any window and every desktop widget switches to
+WidgetKit's `.vibrant` rendering: the hue is thrown away and what is left
+becomes a wallpaper-tinted material, with each pixel's opacity taken from its
+luminance. Click the wallpaper and the colour comes back.
+
+That fade is the system's, not this widget's, and a widget cannot opt out of
+it. What a widget can do is stay legible inside it, which means not relying on
+colour and never putting light content on a light background — both map to the
+same brightness and merge. So in that mode the ring, the trend line and the
+numbers all draw white, the labels step down by opacity rather than by
+`.secondary` grey, and the panel behind them goes dark.
+
+If you would rather it never faded, that is a system setting rather than
+anything here: **System Settings → Desktop & Dock → Widgets**, where *Widget
+style* set to **Full-color** keeps the colour whether or not the desktop is in
+front. **Automatic** is the setting that fades it.
 
 ## If it is blank
 
