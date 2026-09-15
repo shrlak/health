@@ -11,19 +11,97 @@ rest of the account.
 
 macOS only offers widgets that ship inside an installed app, so this has to be
 built once on the machine that will run it. There is no way around that and no
-prebuilt binary to download.
+prebuilt binary to download. It is a twenty-minute job, most of which is Xcode
+downloading.
+
+### 1. Xcode
+
+Install **Xcode** from the Mac App Store. It is about 7 GB, so start it first
+and read on while it downloads. Open it once when it finishes: it asks you to
+accept the licence and then installs additional components. Let it.
+
+### 2. XcodeGen
 
 ```sh
-brew install xcodegen      # once
-./setup.sh                 # asks for the token, then opens Xcode
+brew install xcodegen
 ```
 
-In Xcode, pick your name under **Signing & Capabilities** for both the `Whoop`
-and `WhoopWidget` targets — a free Apple ID is enough — then press Run.
+If you do not have Homebrew, install it from [brew.sh](https://brew.sh) first.
 
-The app window appears and shows the same figures. Once it has run once, the
-widget is registered: right-click the desktop → **Edit Widgets**, search for
-**Whoop**, and drag the size you want into place.
+XcodeGen turns `project.yml` into an `.xcodeproj`. A generated `.xcodeproj` is
+a large file that conflicts on every edit, which is why it is built here rather
+than committed.
+
+### 3. The token
+
+In the dashboard, go to **Connections → Mac widget → Create a token** and copy
+what it shows you. It is shown once and stored only as a hash, so if you lose
+it you make another.
+
+### 4. Generate and open
+
+```sh
+cd mac-widget
+./setup.sh
+```
+
+It asks for the token. Paste it and press Enter — nothing appears as you type,
+which is deliberate: a terminal keeps scrollback. It writes
+`Shared/Config.swift`, runs `xcodegen`, and opens `Whoop.xcodeproj`.
+
+### 5. Signing
+
+Xcode will not build until each target has a team. A free Apple ID is enough;
+no paid developer account is needed.
+
+1. If you have never signed in: **Xcode → Settings → Accounts → +** → Apple ID,
+   and sign in.
+2. Click the blue **Whoop** project at the top of the left sidebar.
+3. In the target list, select **Whoop** → **Signing & Capabilities** tab.
+4. Tick **Automatically manage signing**, then pick yourself under **Team**.
+5. Select the **WhoopWidget** target and do the same. Both need it; the widget
+   is a separate target and it is the one people forget.
+
+If Xcode complains the bundle identifier is already taken, open `project.yml`,
+change `io.github.shrlak.whoop` to something else in both places, and run
+`xcodegen generate` again.
+
+### 6. Run it
+
+The scheme control at the top should read **Whoop › My Mac**. Press **⌘R**.
+
+The Whoop window opens and shows your recovery, strain and sleep. If it shows
+an error instead, that is the diagnostic — see the troubleshooting list below.
+
+### 7. Move it to Applications
+
+Xcode builds into DerivedData, which is a scratch directory. A widget served
+from there stops working the moment that directory is cleaned, so move the app
+somewhere stable:
+
+1. In the left sidebar, open the **Products** group and right-click
+   **Whoop.app** → **Show in Finder**.
+2. Drag it into **/Applications**.
+3. Launch it from there once.
+
+### 8. Add the widget
+
+Right-click anywhere on the desktop wallpaper and choose **Edit Widgets**. (The
+same panel opens from clicking the clock in the menu bar and scrolling to the
+bottom.) Search for **Whoop** in the list on the left, then drag either size
+onto the desktop or into Notification Center.
+
+## If something goes wrong
+
+| What you see | What it means |
+| --- | --- |
+| `Signing for "WhoopWidget" requires a development team` | Step 5 was only done for the app target. Set the team on the widget target too. |
+| Widget says **Add your token in Config.swift** | `setup.sh` ran without a token. Run it again and paste one. |
+| Widget says **Token rejected** | The token was revoked or mistyped. Create a new one on Connections and re-run `setup.sh`. |
+| Widget says **Nothing synced yet** | The token works but the account has no Whoop data in the last two weeks. |
+| Widget is blank or stuck on placeholder text | Open the Whoop app. It fetches the same endpoint the same way and has room to say what failed. |
+| **Whoop** is not in the Edit Widgets list | The app has not been run from a stable location. Do step 7. |
+| The number looks stale | WidgetKit budgets refreshes. Open the app and press **Refresh**, which reloads every timeline. |
 
 ## Where the token lives
 
