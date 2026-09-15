@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Card, SectionTitle, Spinner } from '../components/ui'
 import { supabase } from '../lib/supabase'
-import { callFunction, INGEST_URL } from '../lib/functions'
+import { callFunction, WIDGET_URL } from '../lib/functions'
 import { useRouter } from '../lib/router'
 import { longDay } from '../lib/format'
 
 /**
  * Automatic data collection.
  *
- * The two sources are not symmetrical and the page says so rather than
- * implying otherwise: Whoop has a real API that this can pull from on a
- * schedule, while Apple exposes no cloud API at all, so an app on the phone has
- * to push instead.
+ * Whoop is the only source: it has a real API, so the dashboard pulls from it
+ * on a schedule and there is nothing to keep up to date by hand.
+ *
+ * The second half of the page issues the read-only token the Mac widget needs.
+ * A widget is woken by the system long after any session would have expired,
+ * so it cannot hold one; it presents a long-lived token instead, and that token
+ * can only read.
  */
 
 interface WhoopState {
@@ -27,6 +30,7 @@ interface TokenRow {
   id: string
   token_hint: string
   label: string | null
+  scope: string
   created_at: string
   last_used_at: string | null
   revoked_at: string | null
@@ -50,7 +54,7 @@ export function Connections() {
           .select('connected_at, last_sync_at, last_sync_status, last_error, rows_last_sync')
           .maybeSingle(),
         supabase.from('ingest_tokens')
-          .select('id, token_hint, label, created_at, last_used_at, revoked_at')
+          .select('id, token_hint, label, scope, created_at, last_used_at, revoked_at')
           .is('revoked_at', null)
           .order('created_at', { ascending: false }),
       ])
@@ -128,7 +132,9 @@ export function Connections() {
   const mintToken = async () => {
     setBusy('token'); setError(null)
     try {
-      const r = await callFunction<{ token: string }>('ingest-token', { body: { label: 'iPhone' } })
+      const r = await callFunction<{ token: string }>('ingest-token', {
+        body: { label: 'Mac widget', scope: 'read' },
+      })
       setFreshToken(r.token)
       await load()
     } catch (e) {
@@ -139,7 +145,7 @@ export function Connections() {
   }
 
   const revokeToken = async (id: string) => {
-    if (!confirm('Revoke this token? The iPhone using it will stop uploading.')) return
+    if (!confirm('Revoke this token? A widget using it will stop updating.')) return
     setBusy(id)
     try {
       await callFunction('ingest-token', { method: 'DELETE', query: { id } })
@@ -230,20 +236,21 @@ export function Connections() {
         </Card>
       </section>
 
-      {/* --------------------------------------------------- Apple Health */}
+      {/* ------------------------------------------------------ Mac widget */}
       <section>
-        <SectionTitle hint="Apple exposes no cloud API for Health data, so nothing can pull it. An app on your iPhone pushes it here instead.">
-          Apple Health
+        <SectionTitle hint="A widget wakes on the system's schedule, long after a login session would have expired, so it authenticates with a token instead.">
+          Mac widget
         </SectionTitle>
 
         <Card>
-          <h3 className="t-headline text-[var(--label)]">Push endpoint</h3>
+          <h3 className="t-headline text-[var(--label)]">Read-only token</h3>
           <p className="t-footnote mt-1 text-[var(--label-2)]">
-            Create a token, then point an app on your iPhone at this URL. Anything that can POST
-            JSON on a schedule works; Health Auto Export is the usual choice.
+            The widget reads your latest recovery, strain and sleep from this URL. The token it
+            presents can only read that summary — it cannot write anything or reach the rest of
+            your account.
           </p>
 
-          <Field label="URL" value={INGEST_URL} />
+          <Field label="URL" value={WIDGET_URL} />
 
           {freshToken ? (
             <div className="mt-3">
@@ -271,6 +278,9 @@ export function Connections() {
                     {t.token_hint}…
                   </code>
                   <span className="t-caption text-[var(--label-3)]">
+                    {t.scope === 'read' ? 'Read only' : 'Can write data'}
+                  </span>
+                  <span className="t-caption text-[var(--label-3)]">
                     {t.last_used_at
                       ? `Last used ${new Date(t.last_used_at).toLocaleString()}`
                       : `Created ${longDay(t.created_at.slice(0, 10))} · never used`}
@@ -290,35 +300,24 @@ export function Connections() {
 
         <div className="mt-3">
           <Card>
-            <h3 className="t-headline text-[var(--label)]">Setting up Health Auto Export</h3>
+            <h3 className="t-headline text-[var(--label)]">Building it</h3>
+            <p className="t-footnote mt-1 text-[var(--label-2)]">
+              macOS only runs widgets that come from an installed app, so the widget has to be
+              built once on your own machine. The source is in <code className="rounded bg-[var(--fill)] px-1">mac-widget/</code> in
+              the repository.
+            </p>
             <ol className="t-subhead mt-2 list-decimal space-y-1.5 pl-5 text-[var(--label-2)]">
-              <li>Install <strong>Health Auto Export</strong> from the App Store and give it Health access.</li>
-              <li>Go to <strong>Automations</strong> and add one, with type <strong>REST API</strong>.</li>
-              <li>Set the URL to the endpoint above and the method to <strong>POST</strong>.</li>
+              <li>Install Xcode from the App Store, then run <code className="rounded bg-[var(--fill)] px-1">brew install xcodegen</code>.</li>
+              <li>In <code className="rounded bg-[var(--fill)] px-1">mac-widget/</code>, run <code className="rounded bg-[var(--fill)] px-1">./setup.sh</code> and paste the token above when it asks.</li>
+              <li>Xcode opens. Pick your name under <strong>Signing &amp; Capabilities</strong> for both targets, then press Run.</li>
               <li>
-                Add a header named <code className="rounded bg-[var(--fill)] px-1">Authorization</code> with
-                value <code className="rounded bg-[var(--fill)] px-1">Bearer YOUR_TOKEN</code>.
+                Right-click the desktop → <strong>Edit Widgets</strong>, find <strong>Whoop</strong>,
+                and drag the size you want into place.
               </li>
-              <li>Set format to <strong>JSON</strong> and aggregation to <strong>Daily</strong>.</li>
-              <li>Choose the metrics you want, set the schedule, and turn the automation on.</li>
             </ol>
             <p className="t-footnote mt-3 text-[var(--label-3)]">
-              Re-sending a day is safe: rows are keyed by day and source, so a repeated export
-              updates what is there rather than duplicating it. The response names any metric it
-              did not recognise, so a misconfigured export is visible rather than silent.
-            </p>
-          </Card>
-        </div>
-
-        <div className="mt-3">
-          <Card>
-            <h3 className="t-headline text-[var(--label)]">The honest limitation</h3>
-            <p className="t-subhead mt-1.5 text-[var(--label-2)]">
-              HealthKit data lives on your iPhone and Apple provides no server to read it from, so
-              there is nothing for this dashboard to poll. Every "Apple Health integration" works
-              the way this one does — something on the device sends the data out. The alternatives
-              are a scheduled export app as above, an iOS Shortcut posting to the same endpoint, or
-              continuing to upload the zip by hand on the Import tab.
+              The widget refreshes roughly every fifteen minutes, and the data behind it is
+              re-pulled from Whoop every six hours. Revoking the token above stops it immediately.
             </p>
           </Card>
         </div>

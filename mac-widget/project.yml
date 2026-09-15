@@ -1,0 +1,61 @@
+# Generated into an Xcode project by `xcodegen`; see setup.sh.
+#
+# A widget extension cannot be described by Swift Package Manager, and a
+# checked-in .xcodeproj is a large generated file that conflicts on every edit,
+# so the project is described here and built on the machine that runs it.
+
+name: Whoop
+options:
+  bundleIdPrefix: io.github.shrlak.whoop
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_HARDENED_RUNTIME: YES
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEAD_CODE_STRIPPING: YES
+
+targets:
+  Whoop:
+    type: application
+    platform: macOS
+    sources:
+      - App
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.shrlak.whoop
+        PRODUCT_NAME: Whoop
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Whoop
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.healthcare-fitness
+        CODE_SIGN_ENTITLEMENTS: App/Whoop.entitlements
+        COMBINE_HIDPI_IMAGES: YES
+    dependencies:
+      - target: WhoopWidget
+        embed: true
+
+  WhoopWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - Widget
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.shrlak.whoop.widget
+        PRODUCT_NAME: WhoopWidget
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: Widget/WhoopWidget.entitlements
+        SKIP_INSTALL: YES
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Whoop
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension

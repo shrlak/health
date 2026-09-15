@@ -2,8 +2,12 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS, env, json, sha256 } from '../_shared/common.ts'
 
 /**
- * Mints and revokes the bearer tokens the iPhone uses to push Apple Health
- * data.
+ * Mints and revokes long-lived bearer tokens.
+ *
+ * Two kinds: a 'read' token, which the Mac widget presents to whoop-widget and
+ * which can do nothing but read the summary, and an 'ingest' token, which may
+ * write health data. A widget token is the one that ends up sitting on a
+ * laptop, so it is the one that must not be able to write.
  *
  * Minting happens here rather than in the browser so the plaintext is
  * generated server-side and only its hash is ever stored. The value is
@@ -21,7 +25,10 @@ Deno.serve(async (req) => {
     const userId = userData.user.id
 
     if (req.method === 'POST') {
-      const body = await req.json().catch(() => ({})) as { label?: string }
+      const body = await req.json().catch(() => ({})) as { label?: string; scope?: string }
+      // Anything but an explicit 'read' stays on the writing scope, so a
+      // malformed request cannot quietly widen what a token can do.
+      const scope = body.scope === 'read' ? 'read' : 'ingest'
 
       // 32 random bytes, base64url. Generated here so it never depends on the
       // browser's entropy or travels further than this response.
@@ -33,11 +40,12 @@ Deno.serve(async (req) => {
         user_id: userId,
         token_hash: await sha256(token),
         token_hint: token.slice(0, 6),
-        label: body.label ?? 'iPhone',
+        label: body.label ?? (scope === 'read' ? 'Mac widget' : 'iPhone'),
+        scope,
       })
       if (error) return json({ error: error.message }, 500)
 
-      return json({ token, hint: token.slice(0, 6) })
+      return json({ token, hint: token.slice(0, 6), scope })
     }
 
     if (req.method === 'DELETE') {
