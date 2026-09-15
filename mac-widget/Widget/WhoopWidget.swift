@@ -126,9 +126,24 @@ struct MediumView: View {
 
 struct WhoopWidgetView: View {
     @Environment(\.widgetFamily) private var family
+    @Environment(\.widgetRenderingMode) private var mode
     let entry: WhoopEntry
 
+    /// The background has to be chosen against the rendering mode, not just
+    /// left to adapt. `.fill.tertiary` is a light grey, and once the desktop
+    /// loses focus macOS turns luminance into opacity: a light panel comes
+    /// back as bright as the text on it, and the stats disappear into a grey
+    /// slab. Dark is what leaves the white content something to sit against.
+    @ViewBuilder
     var body: some View {
+        if mode.isMonochrome {
+            padded.containerBackground(Color.black.opacity(0.4), for: .widget)
+        } else {
+            padded.containerBackground(.fill.tertiary, for: .widget)
+        }
+    }
+
+    private var padded: some View {
         content
             // Own the inset rather than taking the system's. macOS reserves
             // 16pt per edge, which is sized for a phone's home screen and cost
@@ -136,7 +151,6 @@ struct WhoopWidgetView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .containerBackground(.fill.tertiary, for: .widget)
     }
 
     @ViewBuilder

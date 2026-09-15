@@ -1,15 +1,41 @@
 import SwiftUI
+import WidgetKit
 
 /// Small pieces the widget and the container app both draw.
 ///
-/// A widget is given a fixed box and clips whatever does not fit, so each of
-/// these reports an honest size and keeps its ink inside its own frame.
+/// Two constraints shape all of them.
+///
+/// A widget is given a fixed box and clips whatever does not fit rather than
+/// shrinking it, so each of these reports an honest size and keeps its ink
+/// inside its own frame.
+///
+/// And macOS only draws a desktop widget in colour while the desktop is the
+/// front-most thing. Click any window and it switches to `.vibrant`: the hue
+/// is discarded and what is left becomes a wallpaper-tinted material, with
+/// each pixel's opacity taken from its luminance. Light on light is the one
+/// thing that cannot survive that — background and text map to the same
+/// brightness and the numbers dissolve into a grey slab — so in that mode
+/// everything here draws white and the widget's background goes dark.
+
+extension WidgetRenderingMode {
+    /// True wherever hue is discarded: macOS's faded desktop widgets
+    /// (`.vibrant`) and tinted home screens (`.accented`).
+    var isMonochrome: Bool { self != .fullColor }
+}
 
 struct RecoveryRing: View {
+    @Environment(\.widgetRenderingMode) private var mode
     let fraction: Double
     let color: Color
     let label: String
     var lineWidth: CGFloat = 9
+
+    /// White is the brightest thing vibrant rendering can be handed, so it is
+    /// what comes back most solid. A tinted stroke comes back faint.
+    private var arc: Color { mode.isMonochrome ? .white : color }
+    private var track: Color {
+        mode.isMonochrome ? Color.white.opacity(0.3) : color.opacity(0.18)
+    }
 
     var body: some View {
         ZStack {
@@ -18,14 +44,17 @@ struct RecoveryRing: View {
             // the path and hangs half its width outside, which the widget's
             // own edge then shaves off.
             Circle()
-                .strokeBorder(color.opacity(0.18), lineWidth: lineWidth)
+                .strokeBorder(track, lineWidth: lineWidth)
             Circle()
                 .inset(by: lineWidth / 2)
                 .trim(from: 0, to: fraction)
-                .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .stroke(arc, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
+            // The percentage says what the band colour says, which is why
+            // losing the hue loses no information.
             Text(label)
                 .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .foregroundStyle(mode.isMonochrome ? Color.white : Color.primary)
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
                 // Keep the number inside the ring rather than over it.
@@ -38,9 +67,15 @@ struct RecoveryRing: View {
 }
 
 struct Sparkline: View {
+    @Environment(\.widgetRenderingMode) private var mode
     let points: [TrendPoint]
     let color: Color
     var lineWidth: CGFloat = 1.8
+
+    private var stroke: Color { mode.isMonochrome ? .white : color }
+    /// A hairline survives being turned into a material badly; give it a
+    /// little more to work with once the colour is gone.
+    private var width: CGFloat { mode.isMonochrome ? max(lineWidth, 2.2) : lineWidth }
 
     var body: some View {
         GeometryReader { geo in
@@ -53,8 +88,8 @@ struct Sparkline: View {
             // The stroke is centred on the path, so the highest and lowest
             // points need half a line width of room or they draw flat against
             // the edge.
-            let inset = lineWidth / 2
-            let plot = max(geo.size.height - lineWidth, 0)
+            let inset = width / 2
+            let plot = max(geo.size.height - width, 0)
 
             Path { path in
                 guard values.count > 1 else { return }
@@ -66,24 +101,30 @@ struct Sparkline: View {
                     if index == 0 { path.move(to: point) } else { path.addLine(to: point) }
                 }
             }
-            .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
+            .stroke(stroke, style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
         }
     }
 }
 
 struct Stat: View {
+    @Environment(\.widgetRenderingMode) private var mode
     let label: String
     let value: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(label)
-                .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(.secondary)
+                // `.secondary` is a light grey. Vibrant rendering reads that
+                // as "nearly as bright as the panel" and the label goes with
+                // it, so once the colour is gone the hierarchy comes from
+                // opacity and weight instead.
+                .font(.system(size: 9, weight: mode.isMonochrome ? .semibold : .medium))
+                .foregroundStyle(mode.isMonochrome ? Color.white.opacity(0.78) : Color.secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text(value)
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundStyle(mode.isMonochrome ? Color.white : Color.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
@@ -95,29 +136,34 @@ struct Stat: View {
 }
 
 struct Caption: View {
+    @Environment(\.widgetRenderingMode) private var mode
     let text: String
 
     var body: some View {
         Text(text)
-            .font(.system(size: 9, weight: .medium))
-            .foregroundStyle(.secondary)
+            .font(.system(size: 9, weight: mode.isMonochrome ? .semibold : .medium))
+            .foregroundStyle(mode.isMonochrome ? Color.white.opacity(0.78) : Color.secondary)
             .lineLimit(1)
     }
 }
 
 struct Unavailable: View {
+    @Environment(\.widgetRenderingMode) private var mode
     let message: String
+
+    private var ink: Color {
+        mode.isMonochrome ? Color.white.opacity(0.85) : Color.secondary
+    }
 
     var body: some View {
         VStack(spacing: 4) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 16))
-                .foregroundStyle(.secondary)
             Text(message)
                 .font(.system(size: 10))
                 .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
         }
+        .foregroundStyle(ink)
         .padding(6)
         // Centre the message in the widget instead of leaving it wherever the
         // parent's alignment happens to put it.
