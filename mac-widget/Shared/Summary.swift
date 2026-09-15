@@ -15,11 +15,21 @@ struct Summary: Decodable {
     let hrv: Double?
     let restingHr: Double?
     let strain: Double?
+    let calories: Double?
     let sleepMin: Double?
     let sleepNeedMin: Double?
     let sleepPerformance: Double?
+    let sleepEfficiency: Double?
+    /// 0…10, the same blend the dashboard's Insights tab shows.
+    let readiness: Double?
+    /// "recover" | "pace" | "ready" | "go", or nil alongside a nil `readiness`.
+    let readinessBand: String?
     let recoveryTrend: [TrendPoint]
     let strainTrend: [TrendPoint]
+    /// Optional, unlike the other two trends: added alongside this decode,
+    /// so a widget refreshing before the backend redeploys would otherwise
+    /// fail to decode the whole payload over one missing key.
+    let hrvTrend: [TrendPoint]?
     let updatedAt: String
 }
 
@@ -90,6 +100,9 @@ extension Summary {
     var strainText: String { strain.map { String(format: "%.1f", $0) } ?? "—" }
     var hrvText: String { hrv.map { "\(Int($0.rounded())) ms" } ?? "—" }
     var restingHrText: String { restingHr.map { "\(Int($0.rounded())) bpm" } ?? "—" }
+    var caloriesText: String { calories.map { "\(Int($0.rounded())) kcal" } ?? "—" }
+    var readinessText: String { readiness.map { String(format: "%.1f", $0) } ?? "—" }
+    var hrvTrendPoints: [TrendPoint] { hrvTrend ?? [] }
 
     var sleepText: String {
         guard let minutes = sleepMin else { return "—" }
@@ -100,6 +113,14 @@ extension Summary {
     var sleepDetail: String {
         guard let performance = sleepPerformance else { return "Sleep" }
         return "Sleep · \(Int(performance.rounded()))% of need"
+    }
+
+    /// "92% perf · 88% eff", trimmed to whichever of the two is present.
+    var sleepSecondaryText: String? {
+        var parts: [String] = []
+        if let performance = sleepPerformance { parts.append("\(Int(performance.rounded()))% perf") }
+        if let efficiency = sleepEfficiency { parts.append("\(Int(efficiency.rounded()))% eff") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     /// 0…1, for the ring. Nothing scored yet leaves it empty rather than full.
@@ -114,6 +135,30 @@ extension Summary {
         if recovery >= 67 { return Color(red: 0.06, green: 0.73, blue: 0.51) }
         if recovery >= 34 { return Color(red: 1.00, green: 0.73, blue: 0.09) }
         return Color(red: 0.98, green: 0.31, blue: 0.35)
+    }
+
+    /// Recover / Pace / Ready / Go, short enough for the widget's readiness
+    /// badge. Falls back to a neutral word if the band is ever unrecognised,
+    /// rather than showing nothing.
+    var readinessShortLabel: String {
+        switch readinessBand {
+        case "recover": return "LOW"
+        case "pace": return "PACE"
+        case "ready": return "READY"
+        case "go": return "GO"
+        default: return "READY"
+        }
+    }
+
+    /// Mirrors the dashboard's readiness band colors: red below "pace",
+    /// amber for "pace", green from "ready" up.
+    var readinessColor: Color {
+        switch readinessBand {
+        case "recover": return Color(red: 0.98, green: 0.31, blue: 0.35)
+        case "pace": return Color(red: 1.00, green: 0.73, blue: 0.09)
+        case "ready", "go": return Color(red: 0.06, green: 0.73, blue: 0.51)
+        default: return .secondary
+        }
     }
 
     /// Latest recovery vs. the mean of the rest of `recoveryTrend`.

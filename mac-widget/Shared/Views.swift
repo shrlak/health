@@ -178,6 +178,7 @@ struct Stat: View {
     let value: String
     var color: Color = GlassPalette.accentStart
     var delta: TrendDelta? = nil
+    var secondary: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -203,6 +204,35 @@ struct Stat: View {
                         .foregroundStyle(color.opacity(0.85))
                 }
             }
+            if let secondary {
+                Text(secondary)
+                    .font(.system(size: 7.5, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .foregroundStyle(color.opacity(0.7))
+            }
+        }
+    }
+}
+
+/// A small pill for the dashboard's readiness score, sitting under the
+/// recovery ring rather than taking a full stat row of its own.
+struct ReadinessBadge: View {
+    let score: Double
+    let shortLabel: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Circle()
+                .fill(color)
+                .frame(width: 5, height: 5)
+                .shadow(color: color.opacity(0.9), radius: 2.5)
+            Text("\(shortLabel) \(String(format: "%.1f", score))")
+                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .foregroundStyle(color.opacity(0.9))
         }
     }
 }

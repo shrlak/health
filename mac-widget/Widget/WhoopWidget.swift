@@ -91,7 +91,17 @@ struct MediumView: View {
                             .foregroundStyle(summary.recoveryColor.opacity(0.85))
                     }
                 }
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                if let readiness = summary.readiness {
+                    ReadinessBadge(
+                        score: readiness,
+                        shortLabel: summary.readinessShortLabel,
+                        color: summary.readinessColor
+                    )
+                }
             }
+            .frame(width: 84)
 
             VStack(alignment: .leading, spacing: 7) {
                 Text(summary.dayText)
@@ -99,10 +109,17 @@ struct MediumView: View {
                     .foregroundStyle(.white.opacity(0.7))
 
                 GlassCard(cornerRadius: 10) {
-                    VStack(alignment: .leading, spacing: 7) {
+                    VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 16) {
-                            Stat(label: "STRAIN", value: summary.strainText, color: MetricPalette.strain, delta: summary.strainDelta)
-                            Stat(label: "SLEEP", value: summary.sleepText, color: MetricPalette.sleep)
+                            Stat(
+                                label: "STRAIN", value: summary.strainText,
+                                color: MetricPalette.strain, delta: summary.strainDelta,
+                                secondary: summary.calories != nil ? summary.caloriesText : nil
+                            )
+                            Stat(
+                                label: "SLEEP", value: summary.sleepText,
+                                color: MetricPalette.sleep, secondary: summary.sleepSecondaryText
+                            )
                         }
                         HStack(spacing: 16) {
                             Stat(label: "HRV", value: summary.hrvText, color: MetricPalette.hrv)
@@ -112,18 +129,22 @@ struct MediumView: View {
                     .padding(8)
                 }
 
-                // Two real trend graphs instead of one: recovery keeps its
-                // health-band color, strain gets its own metric accent.
-                if summary.recoveryTrend.count > 1 || summary.strainTrend.count > 1 {
-                    HStack(spacing: 8) {
+                // Recovery, strain and HRV each get their own trend line:
+                // recovery keeps its health-band color, the other two their
+                // metric accents.
+                if summary.recoveryTrend.count > 1 || summary.strainTrend.count > 1 || summary.hrvTrendPoints.count > 1 {
+                    HStack(spacing: 6) {
                         if summary.recoveryTrend.count > 1 {
                             Sparkline(points: summary.recoveryTrend, color: summary.recoveryColor)
                         }
                         if summary.strainTrend.count > 1 {
                             Sparkline(points: summary.strainTrend, color: MetricPalette.strain)
                         }
+                        if summary.hrvTrendPoints.count > 1 {
+                            Sparkline(points: summary.hrvTrendPoints, color: MetricPalette.hrv)
+                        }
                     }
-                    .frame(height: 20)
+                    .frame(height: 18)
                 }
                 Spacer(minLength: 0)
             }

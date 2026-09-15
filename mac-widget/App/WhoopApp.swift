@@ -69,19 +69,34 @@ struct ContentView: View {
     private func loaded(_ summary: Summary) -> some View {
         GlassCard(cornerRadius: 16) {
             HStack(spacing: 18) {
-                RecoveryRing(
-                    fraction: summary.recoveryFraction,
-                    color: summary.recoveryColor,
-                    label: summary.recoveryText,
-                    lineWidth: 11
-                )
-                .frame(width: 92, height: 92)
+                VStack(spacing: 6) {
+                    RecoveryRing(
+                        fraction: summary.recoveryFraction,
+                        color: summary.recoveryColor,
+                        label: summary.recoveryText,
+                        lineWidth: 11
+                    )
+                    .frame(width: 92, height: 92)
+                    if let readiness = summary.readiness {
+                        ReadinessBadge(
+                            score: readiness,
+                            shortLabel: summary.readinessShortLabel,
+                            color: summary.readinessColor
+                        )
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 9) {
                     Text(summary.dayText).font(.subheadline).foregroundStyle(.white.opacity(0.7))
-                    Text(summary.sleepDetail).font(.caption).foregroundStyle(.white.opacity(0.55))
-                    Stat(label: "STRAIN", value: summary.strainText, color: MetricPalette.strain, delta: summary.strainDelta)
-                    Stat(label: "SLEEP", value: summary.sleepText, color: MetricPalette.sleep)
+                    Stat(
+                        label: "STRAIN", value: summary.strainText,
+                        color: MetricPalette.strain, delta: summary.strainDelta,
+                        secondary: summary.calories != nil ? summary.caloriesText : nil
+                    )
+                    Stat(
+                        label: "SLEEP", value: summary.sleepText,
+                        color: MetricPalette.sleep, secondary: summary.sleepSecondaryText
+                    )
                     Stat(label: "HRV", value: summary.hrvText, color: MetricPalette.hrv)
                     Stat(label: "RESTING HR", value: summary.restingHrText, color: MetricPalette.restingHR)
                 }
