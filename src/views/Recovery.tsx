@@ -12,19 +12,16 @@ export function Recovery({ d }: { d: Derived }) {
   const { palette } = useTheme()
 
   const rows = useMemo(() => {
-    const hrvApple = d.metric('hrv_ms')
-    const rhrApple = d.metric('resting_hr')
-    const spo2 = d.metric('spo2_pct')
-    const rr = d.metric('respiratory_rate')
-
     const base = rowsFrom(d.axis, {
       recovery: (day) => d.recoveries.get(day)?.recovery_pct ?? null,
-      // Whoop's chest-strap HRV is the better signal; Apple fills the gaps.
-      hrv: (day) => d.recoveries.get(day)?.hrv_ms ?? hrvApple.get(day) ?? null,
-      rhr: (day) => d.recoveries.get(day)?.resting_hr ?? rhrApple.get(day) ?? null,
-      spo2: (day) => d.recoveries.get(day)?.spo2_pct ?? spo2.get(day) ?? null,
-      rr: (day) => d.recoveries.get(day)?.respiratory_rate ?? rr.get(day) ?? null,
+      hrv: (day) => d.recoveries.get(day)?.hrv_ms ?? null,
+      rhr: (day) => d.recoveries.get(day)?.resting_hr ?? null,
+      spo2: (day) => d.recoveries.get(day)?.spo2_pct ?? null,
+      // Whoop reports breathing rate on the sleep record, not the recovery one.
+      rr: (day) => d.sleepByDay.get(day)?.respiratory_rate ?? null,
       skin: (day) => d.recoveries.get(day)?.skin_temp_c ?? null,
+      avgHr: (day) => d.cycles.get(day)?.avg_hr ?? null,
+      maxHr: (day) => d.cycles.get(day)?.max_hr ?? null,
     })
 
     // A seven-day baseline makes the trend readable through night-to-night noise.
@@ -61,7 +58,7 @@ export function Recovery({ d }: { d: Derived }) {
     return (
       <Empty
         title="No recovery data"
-        body="Recovery, HRV and resting heart rate come from Whoop, and HRV also from Apple Watch. Import an export to populate this page."
+        body="Recovery, HRV and resting heart rate are measured overnight by Whoop. Connect it to fill this page."
       />
     )
   }
@@ -164,6 +161,25 @@ export function Recovery({ d }: { d: Derived }) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
+        <ChartCard
+          title="Heart rate across the day"
+          accent="var(--series-1)"
+          hint="Whoop averages your heart rate over the whole cycle, sleep included, and keeps the highest reading it saw. The gap between the two is roughly how varied the day was."
+          rows={rows}
+          series={[
+            { key: 'avgHr', label: 'Average', color: palette.series[0], format: (v) => `${v.toFixed(0)} bpm` },
+            { key: 'maxHr', label: 'Peak', color: palette.series[4], format: (v) => `${v.toFixed(0)} bpm` },
+          ]}
+        >
+          <TrendChart
+            rows={rows}
+            series={[
+              { key: 'avgHr', label: 'Average', color: palette.series[0], format: (v) => `${v.toFixed(0)} bpm` },
+              { key: 'maxHr', label: 'Peak', color: palette.series[4], format: (v) => `${v.toFixed(0)} bpm` },
+            ]}
+          />
+        </ChartCard>
+
         <ChartCard
           title="Respiratory rate and skin temperature"
           accent="var(--series-4)"

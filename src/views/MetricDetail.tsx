@@ -10,14 +10,9 @@ import {
   CATEGORY_SECTION, METRIC_BY_KEY, METRICS, metricSlot,
 } from '../lib/metrics'
 import type { Derived } from './common'
-
-const RANGES = [
-  { value: '30', label: '30D' },
-  { value: '90', label: '3M' },
-  { value: '180', label: '6M' },
-  { value: '365', label: '1Y' },
-  { value: 'all', label: 'All' },
-] as const
+// The same vocabulary as the header control, so switching pages does not
+// switch what the buttons mean.
+import { ALL_RANGE, RANGES } from './common'
 
 /**
  * One page serving every metric, driven by the registry.
@@ -28,15 +23,15 @@ const RANGES = [
  */
 export function MetricDetail({ d, metricKey }: { d: Derived; metricKey: string }) {
   const { palette } = useTheme()
-  const [range, setRange] = useState<string>('90')
+  const [range, setRange] = useState<string>('30')
 
   const def = METRIC_BY_KEY.get(metricKey)
 
   const series = useMemo(() => (def ? def.series(d) : new Map<string, number>()), [def, d])
 
   const days = useMemo(() => {
-    if (range === 'all') return d.axis
-    return d.axis.slice(-Number(range))
+    if (range === ALL_RANGE) return d.axis
+    return d.axis.slice(-(Number(range) + 1))
   }, [d.axis, range])
 
   const rows = useMemo<ChartRow[]>(() => {
@@ -239,7 +234,7 @@ export function MetricDetail({ d, metricKey }: { d: Derived; metricKey: string }
               <Link
                 key={m.key}
                 to={`/metric/${m.key}`}
-                className="rounded-[var(--r-tile)] bg-[var(--surface-1)] px-3.5 py-3"
+                className="panel rounded-[var(--r-tile)] px-3.5 py-3"
               >
                 <span
                   className="t-footnote font-semibold"
@@ -256,7 +251,7 @@ export function MetricDetail({ d, metricKey }: { d: Derived; metricKey: string }
       <section>
         <Link
           to={section.path}
-          className="flex items-center justify-between rounded-[var(--r-card)] bg-[var(--surface-1)] px-4 py-3.5"
+          className="panel flex items-center justify-between rounded-[var(--r-card)] px-4 py-3.5"
         >
           <span className="t-body text-[var(--tint)]">
             See everything in {section.label}

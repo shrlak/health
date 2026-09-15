@@ -19,7 +19,6 @@ export function ImportPanel({
   const [job, setJob] = useState<Job | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<string | null>(null)
-  const appleRef = useRef<HTMLInputElement>(null)
   const whoopRef = useRef<HTMLInputElement>(null)
 
   const run = async (kind: 'apple' | 'whoop', file: File) => {
@@ -38,7 +37,6 @@ export function ImportPanel({
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setJob(null)
-      if (appleRef.current) appleRef.current.value = ''
       if (whoopRef.current) whoopRef.current.value = ''
     }
   }
@@ -62,20 +60,7 @@ export function ImportPanel({
           <span className="font-medium text-[var(--tint)]">Connections</span>
         </a>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <ImportTile
-            title="Apple Health"
-            steps={[
-              'Open Health on your iPhone',
-              'Tap your photo, top right',
-              'Scroll down, tap Export All Health Data',
-              'Save the zip, then choose it here',
-            ]}
-            accept=".zip"
-            inputRef={appleRef}
-            disabled={busy}
-            onPick={(f) => run('apple', f)}
-          />
+        <div className="grid gap-3">
           <ImportTile
             title="Whoop"
             steps={[
@@ -104,7 +89,7 @@ export function ImportPanel({
               />
             </div>
             <p className="t-caption mt-2 text-[var(--label-3)]">
-              A large Apple Health export can take a few minutes. Keep this tab open.
+A large export can take a few minutes. Keep this tab open.
             </p>
           </div>
         )}
@@ -126,7 +111,7 @@ export function ImportPanel({
             {imports.map((i) => (
               <li key={i.id} className="t-footnote flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
                 <span className="font-semibold text-[var(--label)]">
-                  {i.source === 'apple_health' ? 'Apple Health' : 'Whoop'}
+                  {i.source === 'whoop_api' ? 'Whoop sync' : 'Whoop export'}
                 </span>
                 <span className="text-[var(--label-2)]">{i.filename}</span>
                 <span

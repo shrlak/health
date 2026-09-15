@@ -191,9 +191,14 @@ otherwise.
 
 **Whoop has a developer API**, so the dashboard genuinely pulls from it. You
 authorize once and a scheduled job fetches new cycles, recoveries, sleeps and
-workouts every six hours — six-hourly rather than nightly because Whoop
-finalises a night when you wake, and overnight shifts move that around the
-clock.
+workouts every fifteen minutes. Each run asks only for the last two days, so it
+is four requests against a limit of a hundred a minute; the cadence costs
+almost nothing and means a workout or a new recovery score appears while you
+are still looking at it.
+
+Quarter-hourly also sidesteps the question of when a "day" ends. Whoop finalises
+a night when you wake, and on an overnight shift that lands anywhere on the
+clock — a nightly job would have to guess, and this one does not.
 
 **Apple Health has no cloud API.** HealthKit lives on the device and Apple
 provides no server to read it from, so nothing can pull it — not this dashboard
@@ -238,7 +243,7 @@ so there is nothing to copy between the two.
 
 An earlier version did ask for one, with a SQL snippet whose placeholder was
 easy to paste unchanged — and that is exactly what happened, leaving the job
-firing every six hours against the literal text `<service role key>` while
+firing on schedule against the literal text `<service role key>` while
 nothing in the UI said so. Steps a person can silently get wrong are worth
 designing out rather than documenting more loudly.
 

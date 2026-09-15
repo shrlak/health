@@ -176,7 +176,7 @@ export function Connections() {
 
       {/* ---------------------------------------------------------- Whoop */}
       <section>
-        <SectionTitle hint="Whoop has a developer API, so this pulls new data on its own every six hours.">
+        <SectionTitle hint="Whoop has a developer API, so this pulls new data on its own every fifteen minutes.">
           Whoop
         </SectionTitle>
         <Card>
@@ -204,7 +204,7 @@ export function Connections() {
                   <button
                     onClick={syncNow}
                     disabled={busy !== null}
-                    className="t-footnote rounded-[var(--r-pill)] bg-[var(--tint)] px-3.5 py-2 font-medium text-white disabled:opacity-50"
+                    className="t-footnote rounded-[var(--r-pill)] bg-[var(--tint)] px-3.5 py-2 font-medium text-[var(--on-tint)] disabled:opacity-50"
                   >
                     {busy === 'sync' ? 'Syncing…' : 'Sync now'}
                   </button>
@@ -220,7 +220,7 @@ export function Connections() {
                 <button
                   onClick={connectWhoop}
                   disabled={busy !== null}
-                  className="t-footnote rounded-[var(--r-pill)] bg-[var(--tint)] px-3.5 py-2 font-medium text-white disabled:opacity-50"
+                  className="t-footnote rounded-[var(--r-pill)] bg-[var(--tint)] px-3.5 py-2 font-medium text-[var(--on-tint)] disabled:opacity-50"
                 >
                   {busy === 'connect' ? 'Opening Whoop…' : 'Connect Whoop'}
                 </button>
@@ -263,7 +263,7 @@ export function Connections() {
             <button
               onClick={mintToken}
               disabled={busy !== null}
-              className="t-footnote mt-3 rounded-[var(--r-pill)] bg-[var(--tint)] px-3.5 py-2 font-medium text-white disabled:opacity-50"
+              className="t-footnote mt-3 rounded-[var(--r-pill)] bg-[var(--tint)] px-3.5 py-2 font-medium text-[var(--on-tint)] disabled:opacity-50"
             >
               {busy === 'token' ? 'Creating…' : 'Create a token'}
             </button>
@@ -317,7 +317,8 @@ export function Connections() {
             </ol>
             <p className="t-footnote mt-3 text-[var(--label-3)]">
               The widget refreshes roughly every fifteen minutes, and the data behind it is
-              re-pulled from Whoop every six hours. Revoking the token above stops it immediately.
+              re-pulled from Whoop every fifteen minutes. Revoking the token above stops it
+              immediately.
             </p>
           </Card>
         </div>

@@ -23,19 +23,23 @@ export function Insights({ d }: { d: Derived }) {
     sleepByDay: d.sleepByDay,
     recoveries: d.recoveries,
     cycles: d.cycles,
-    metric: d.metric,
+    workouts: d.workouts,
   }), [d])
 
   const readiness = useMemo(() => computeReadiness(d.axis, d.sleepByDay, d.recoveries), [d])
   const insights = useMemo(() => buildInsights(scoreInput), [scoreInput])
 
   const rows = useMemo(() => {
-    const steps = d.metric('steps')
+    const training = new Map<string, number>()
+    for (const w of d.workouts) {
+      if (w.duration_min == null) continue
+      training.set(w.day, (training.get(w.day) ?? 0) + w.duration_min)
+    }
     return rowsFrom(d.axis, {
       asleep: (day) => d.sleepByDay.get(day)?.asleep_min ?? null,
       recovery: (day) => d.recoveries.get(day)?.recovery_pct ?? null,
       strain: (day) => d.cycles.get(day)?.strain ?? null,
-      steps: (day) => steps.get(day) ?? null,
+      training: (day) => training.get(day) ?? null,
       hrv: (day) => d.recoveries.get(day)?.hrv_ms ?? null,
     })
   }, [d])
@@ -44,7 +48,7 @@ export function Insights({ d }: { d: Derived }) {
     return (
       <Empty
         title="Nothing here yet"
-        body="Import an Apple Health or Whoop export from the Import tab and your insights will appear here."
+        body="Connect Whoop on the Connections tab and your insights will appear here."
       />
     )
   }
@@ -59,11 +63,11 @@ export function Insights({ d }: { d: Derived }) {
   const sleep28 = recentMean(rows, 'asleep', 28)
   const strain7 = recentMean(rows, 'strain', 7)
   const strain28 = recentMean(rows, 'strain', 28)
-  const steps7 = recentMean(rows, 'steps', 7)
-  const steps28 = recentMean(rows, 'steps', 28)
   const hrv7 = recentMean(rows, 'hrv', 7)
   const hrv28 = recentMean(rows, 'hrv', 28)
-  const lastSteps = latest(rows, 'steps')
+  const recovery7 = recentMean(rows, 'recovery', 7)
+  const recovery28 = recentMean(rows, 'recovery', 28)
+  const lastRecovery = latest(rows, 'recovery')
 
   return (
     <div className="space-y-6">
@@ -94,7 +98,7 @@ export function Insights({ d }: { d: Derived }) {
               <p className="t-subhead mt-1.5 text-[var(--label-2)]">
                 {readiness.band
                   ? BAND_BLURB[readiness.band]
-                  : 'Import a Whoop export, or an Apple Health export with sleep data, to get a readiness score.'}
+                  : 'Connect Whoop to get a readiness score.'}
               </p>
 
               {/* What actually went into the number. A score you cannot
@@ -152,12 +156,12 @@ export function Insights({ d }: { d: Derived }) {
             sub="7-day average"
           />
           <StatTile
-            label="Steps"
-            value={num(steps7, 0)}
+            label="Recovery"
+            value={recovery7 === null ? '—' : `${num(recovery7, 0)}%`}
             color="var(--series-6)"
-            delta={steps7 !== null && steps28 !== null ? (steps7 - steps28) / 1000 : null}
-            deltaLabel="k vs 28-day"
-            sub={lastSteps ? `${num(lastSteps.value, 0)} latest` : '7-day average'}
+            delta={recovery7 !== null && recovery28 !== null ? recovery7 - recovery28 : null}
+            deltaLabel="pts vs 28-day"
+            sub={lastRecovery ? `${num(lastRecovery.value, 0)}% latest` : '7-day average'}
           />
         </div>
       </section>

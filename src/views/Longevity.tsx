@@ -21,7 +21,7 @@ export function Longevity({ d }: { d: Derived }) {
     sleepByDay: d.sleepByDay,
     recoveries: d.recoveries,
     cycles: d.cycles,
-    metric: d.metric,
+    workouts: d.workouts,
   }), [d])
 
   const scored = categories.filter((c) => c.score !== null)
@@ -35,7 +35,7 @@ export function Longevity({ d }: { d: Derived }) {
     return (
       <Empty
         title="Nothing to score yet"
-        body="Import an Apple Health or Whoop export and each category will be scored from the data it contains."
+        body="Connect Whoop and each category will be scored from the data it reports."
       />
     )
   }

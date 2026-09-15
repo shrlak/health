@@ -34,7 +34,7 @@ export function Home({ d }: { d: Derived }) {
     sleepByDay: d.sleepByDay,
     recoveries: d.recoveries,
     cycles: d.cycles,
-    metric: d.metric,
+    workouts: d.workouts,
   }), [d])
 
   const categories = useMemo(() => computeCategories(scoreInput), [scoreInput])
@@ -56,7 +56,7 @@ export function Home({ d }: { d: Derived }) {
     return (
       <Empty
         title="Nothing here yet"
-        body="Import an Apple Health or Whoop export from the Import tab, and your summary will appear here."
+        body="Connect Whoop on the Connections tab, and your summary will appear here."
       />
     )
   }
@@ -289,7 +289,7 @@ function MetricTile({
   return (
     <Link
       to={`/metric/${def.key}`}
-      className="block rounded-[var(--r-tile)] bg-[var(--surface-1)] p-3.5 transition-transform active:scale-[0.98]"
+      className="panel block rounded-[var(--r-tile)] p-3.5 transition-transform active:scale-[0.98]"
       ariaLabel={`${def.label}, ${def.format(summary.latest)}. Open details.`}
     >
       <div className="flex items-start justify-between gap-2">

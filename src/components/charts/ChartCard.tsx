@@ -37,7 +37,7 @@ export function ChartCard({
   const [view, setView] = useState<'chart' | 'table'>('chart')
 
   return (
-    <section className="rounded-[var(--r-card)] bg-[var(--surface-1)] p-4 sm:p-5">
+    <section className="panel rounded-[var(--r-card)] p-4 sm:p-5">
       <header className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div className="flex min-w-0 items-start gap-2.5">
           {accent && (

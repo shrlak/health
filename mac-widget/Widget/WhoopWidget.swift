@@ -25,9 +25,9 @@ struct Provider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<WhoopEntry>) -> Void) {
         Task {
             let entry = await load()
-            // Whoop finalises a night when you wake and the backend re-pulls
-            // every six hours, so a quarter of an hour is as often as this can
-            // usefully change. WidgetKit treats it as a request, not a promise.
+            // The backend re-pulls from Whoop every fifteen minutes, so
+            // matching that is as often as this can usefully change.
+            // WidgetKit treats it as a request, not a promise.
             let next = Date().addingTimeInterval(15 * 60)
             completion(Timeline(entries: [entry], policy: .after(next)))
         }

@@ -67,21 +67,24 @@ export const PALETTE: Record<Resolved, Palette> = {
     warning: '#c2540a',
     serious: '#b4560f',
     critical: '#c5182b',
-    sleepStages: ['#3b01c6', '#5124fe', '#6866ff', '#8992fe'],
-    hrZones: ['#ed9409', '#c77c0c', '#a36403', '#804e05', '#5f3800'],
+    sleepStages: ['#0311af', '#021dfd', '#6b4bfe', '#9773fe'],
+    hrZones: ['#d67002', '#b45d01', '#934b01', '#733a02', '#542a02'],
   },
+  // Brighter than the light set, because they are drawn on a near-black panel
+  // rather than on white. Each is checked at 3:1 or better against
+  // --surface-1, and adjacent pairs stay above 15 dE2000.
   dark: {
-    surface: '#1c1c1e',
-    grid: '#3a3a3c',
-    axis: '#98989f',
-    text: '#ffffff',
-    series: ['#f70550', '#0282fe', '#bb7304', '#0797ab', '#bf26ff', '#05a23b', '#6f70fe', '#9e8402'],
-    good: '#30d158',
+    surface: '#0c1019',
+    grid: '#2a3654',
+    axis: '#7d90b8',
+    text: '#eef3ff',
+    series: ['#ff2d6f', '#38bdff', '#ff9d2e', '#22d3c5', '#c56bff', '#3ddc84', '#8b8cff', '#d4b436'],
+    good: '#3ddc84',
     warning: '#ffd60a',
     serious: '#ff9f0a',
-    critical: '#ff453a',
-    sleepStages: ['#9ba5fe', '#7c81ff', '#6157ff', '#4e00fc'],
-    hrZones: ['#7d4b00', '#9b5f08', '#bb7309', '#dc890a', '#fe9e0a'],
+    critical: '#ff4d6a',
+    sleepStages: ['#eee4fe', '#c7acfe', '#9975fe', '#573dfe'],
+    hrZones: ['#cb6a01', '#f27f02', '#fea45c', '#fecaa5', '#feeee3'],
   },
 }
 

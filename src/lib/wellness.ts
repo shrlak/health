@@ -1,4 +1,4 @@
-import type { Cycle, Recovery, SleepSession } from './types'
+import type { Cycle, Recovery, SleepSession, Workout } from './types'
 import { consistencyStats, mean } from './analytics'
 
 /**
@@ -161,7 +161,7 @@ export function computeReadiness(
 // ---------------------------------------------------------------- longevity
 
 export type CategoryKey =
-  | 'heart' | 'sleep' | 'movement' | 'metabolic' | 'mental' | 'hearing' | 'nutrition'
+  | 'heart' | 'sleep' | 'recovery' | 'movement' | 'respiratory' | 'metabolic'
 
 export interface CategoryScore {
   key: CategoryKey
@@ -176,16 +176,15 @@ export interface CategoryScore {
 export const CATEGORY_LABEL: Record<CategoryKey, string> = {
   heart: 'Heart health',
   sleep: 'Sleep',
+  recovery: 'Recovery',
   movement: 'Movement',
+  respiratory: 'Respiratory',
   metabolic: 'Metabolic health',
-  mental: 'Mental wellbeing',
-  hearing: 'Hearing',
-  nutrition: 'Nutrition',
 }
 
 /** The palette slot each category borrows, matching the Health app's colours. */
 export const CATEGORY_SLOT: Record<CategoryKey, number> = {
-  heart: 0, hearing: 1, movement: 2, mental: 4, nutrition: 5, sleep: 6, metabolic: 7,
+  heart: 0, movement: 2, respiratory: 3, recovery: 4, sleep: 6, metabolic: 7,
 }
 
 export function scoreLabel(score: number): string {
@@ -200,54 +199,42 @@ interface ScoreInput {
   sleepByDay: Map<string, SleepSession>
   recoveries: Map<string, Recovery>
   cycles: Map<string, Cycle>
-  metric: (name: string) => Map<string, number>
-}
-
-/** Average of a metric across the last `n` days that have a value. */
-function recent(series: Map<string, number>, days: string[], n = 30): number | null {
-  const vals: number[] = []
-  for (let i = days.length - 1; i >= 0 && vals.length < n; i--) {
-    const v = series.get(days[i])
-    if (v !== undefined) vals.push(v)
-  }
-  return mean(vals)
+  workouts: Workout[]
 }
 
 export function computeCategories(input: ScoreInput): CategoryScore[] {
-  const { days, sleepByDay, recoveries, cycles, metric } = input
+  const { days, sleepByDay, recoveries, cycles, workouts } = input
   const out: CategoryScore[] = []
 
-  const recentSleep = days
-    .slice(-30)
+  const window = days.slice(-30)
+  const windowSet = new Set(window)
+
+  const recentSleep = window
     .map((d) => sleepByDay.get(d))
     .filter((s): s is SleepSession => !!s)
+
+  /** Average of a field across the scoring window's days that have a value. */
+  const avgOf = (pick: (day: string) => number | null | undefined): number | null =>
+    mean(window.map(pick).filter((v): v is number => v != null))
 
   // ------------------------------------------------------------- heart
   {
     const inputs: string[] = []
     const parts: number[] = []
-    const rhr = mean(days.slice(-30).map((d) => recoveries.get(d)?.resting_hr)
-      .filter((v): v is number => v != null))
-    const hrv = mean(days.slice(-30).map((d) => recoveries.get(d)?.hrv_ms)
-      .filter((v): v is number => v != null))
-    const vo2 = recent(metric('vo2_max'), days)
-    const rhrFallback = rhr ?? recent(metric('resting_hr'), days)
+    const rhr = avgOf((d) => recoveries.get(d)?.resting_hr)
+    const hrv = avgOf((d) => recoveries.get(d)?.hrv_ms)
 
-    if (rhrFallback != null) {
+    if (rhr != null) {
       // Lower is better; 45 bpm and below scores full, 75 and above scores zero.
-      parts.push(1 - norm(rhrFallback, 45, 75))
-      inputs.push(`Resting heart rate ${Math.round(rhrFallback)} bpm`)
+      parts.push(1 - norm(rhr, 45, 75))
+      inputs.push(`Resting heart rate ${Math.round(rhr)} bpm`)
     }
     if (hrv != null) {
       parts.push(norm(hrv, 25, 110))
       inputs.push(`HRV ${Math.round(hrv)} ms`)
     }
-    if (vo2 != null) {
-      parts.push(norm(vo2, 30, 55))
-      inputs.push(`VO2 max ${vo2.toFixed(1)}`)
-    }
     out.push(make('heart', parts, inputs,
-      'Resting heart rate, heart rate variability and cardio fitness.'))
+      'Resting heart rate and heart rate variability, measured overnight.'))
   }
 
   // ------------------------------------------------------------- sleep
@@ -256,6 +243,7 @@ export function computeCategories(input: ScoreInput): CategoryScore[] {
     const parts: number[] = []
     const asleep = mean(recentSleep.map((s) => s.asleep_min).filter((v): v is number => v != null))
     const eff = mean(recentSleep.map((s) => s.efficiency_pct).filter((v): v is number => v != null))
+    const perf = mean(recentSleep.map((s) => s.performance_pct).filter((v): v is number => v != null))
     const cons = consistencyStats(recentSleep)
 
     if (asleep != null) {
@@ -266,116 +254,109 @@ export function computeCategories(input: ScoreInput): CategoryScore[] {
       parts.push(norm(eff, 70, 95))
       inputs.push(`${Math.round(eff)}% efficiency`)
     }
+    if (perf != null) {
+      // Whoop's own verdict on whether the night covered what it needed to.
+      parts.push(norm(perf, 50, 95))
+      inputs.push(`${Math.round(perf)}% of sleep need met`)
+    }
     if (cons.bedtimeStdevH != null) {
       // Under half an hour of bedtime spread scores full; three hours scores zero.
       parts.push(1 - norm(cons.bedtimeStdevH, 0.5, 3))
       inputs.push(`Bedtime varies by ${cons.bedtimeStdevH.toFixed(1)}h`)
     }
-    out.push(make('sleep', parts, inputs, 'Duration, efficiency and how steady your schedule is.'))
+    out.push(make('sleep', parts, inputs,
+      'Duration, efficiency, how much of your need you met, and how steady the schedule is.'))
+  }
+
+  // ---------------------------------------------------------- recovery
+  {
+    const inputs: string[] = []
+    const parts: number[] = []
+    const recovery = avgOf((d) => recoveries.get(d)?.recovery_pct)
+    const debt = mean(recentSleep.map((s) => s.debt_min).filter((v): v is number => v != null))
+
+    if (recovery != null) {
+      // Whoop's own scale: the score already runs 0-100 the right way round.
+      parts.push(recovery / 100)
+      inputs.push(`Recovery ${Math.round(recovery)}%`)
+    }
+    if (debt != null) {
+      // No debt scores full; two hours owed scores zero.
+      parts.push(1 - norm(debt, 0, 120))
+      inputs.push(`${Math.round(debt)} min sleep debt`)
+    }
+    out.push(make('recovery', parts, inputs,
+      "Whoop's readiness score and the sleep debt carried into it."))
   }
 
   // ---------------------------------------------------------- movement
   {
     const inputs: string[] = []
     const parts: number[] = []
-    const steps = recent(metric('steps'), days)
-    const exercise = recent(metric('exercise_min'), days)
-    const strain = mean(days.slice(-30).map((d) => cycles.get(d)?.strain)
-      .filter((v): v is number => v != null))
+    const strain = avgOf((d) => cycles.get(d)?.strain)
 
-    if (steps != null) {
-      parts.push(norm(steps, 2000, 11000))
-      inputs.push(`${Math.round(steps).toLocaleString()} steps a day`)
+    const trainingByDay = new Map<string, number>()
+    for (const w of workouts) {
+      if (!windowSet.has(w.day) || w.duration_min == null) continue
+      trainingByDay.set(w.day, (trainingByDay.get(w.day) ?? 0) + w.duration_min)
     }
-    if (exercise != null) {
-      parts.push(norm(exercise, 5, 45))
-      inputs.push(`${Math.round(exercise)} exercise minutes a day`)
-    }
+    // Days with no workout count as zero rather than being skipped, so a single
+    // hard session in a month cannot read as a month of training.
+    const training = window.length
+      ? window.reduce((sum, d) => sum + (trainingByDay.get(d) ?? 0), 0) / window.length
+      : null
+
     if (strain != null) {
       parts.push(norm(strain, 6, 15))
       inputs.push(`Strain ${strain.toFixed(1)}`)
     }
-    out.push(make('movement', parts, inputs, 'Steps, exercise minutes and training load.'))
+    if (training != null) {
+      parts.push(norm(training, 5, 45))
+      inputs.push(`${Math.round(training)} min training a day`)
+    }
+    out.push(make('movement', parts, inputs, 'Day strain and time spent in logged workouts.'))
+  }
+
+  // ------------------------------------------------------- respiratory
+  {
+    const inputs: string[] = []
+    const parts: number[] = []
+    const spo2 = avgOf((d) => recoveries.get(d)?.spo2_pct)
+    const rr = mean(recentSleep.map((s) => s.respiratory_rate).filter((v): v is number => v != null))
+
+    if (spo2 != null) {
+      // 95% and above is unremarkable; sustained 90% is not.
+      parts.push(norm(spo2, 90, 97))
+      inputs.push(`Blood oxygen ${spo2.toFixed(1)}%`)
+    }
+    if (rr != null) {
+      // Scored on steadiness around a typical 14 breaths a minute rather than
+      // on direction, since neither end is good news on its own.
+      parts.push(1 - Math.min(1, Math.abs(rr - 14) / 6))
+      inputs.push(`${rr.toFixed(1)} breaths a minute asleep`)
+    }
+    out.push(make('respiratory', parts, inputs,
+      'Blood oxygen and breathing rate, both sampled while you sleep.'))
   }
 
   // --------------------------------------------------------- metabolic
   {
     const inputs: string[] = []
     const parts: number[] = []
-    const active = recent(metric('active_energy_kcal'), days)
-    const bmi = recent(metric('bmi'), days)
+    // Whoop stores kilojoules; the dashboard talks in kilocalories.
+    const energy = avgOf((d) => {
+      const kj = cycles.get(d)?.kilojoules
+      return kj == null ? null : kj / 4.184
+    })
 
-    if (active != null) {
-      parts.push(norm(active, 200, 800))
-      inputs.push(`${Math.round(active)} kcal active energy a day`)
+    if (energy != null) {
+      // A whole-cycle figure, resting metabolism included, so the band sits
+      // well above what an active-calories number would.
+      parts.push(norm(energy, 1800, 3200))
+      inputs.push(`${Math.round(energy)} kcal a day`)
     }
-    if (bmi != null) {
-      // Scores highest in the middle of the healthy range and tails off either side.
-      parts.push(1 - Math.min(1, Math.abs(bmi - 22) / 8))
-      inputs.push(`BMI ${bmi.toFixed(1)}`)
-    }
-    out.push(make('metabolic', parts, inputs, 'Energy expenditure and body composition.'))
-  }
-
-  // ------------------------------------------------------------ mental
-  {
-    const inputs: string[] = []
-    const parts: number[] = []
-    const daylight = recent(metric('daylight_min'), days)
-    const mindful = recent(metric('mindful_min'), days)
-    const cons = consistencyStats(recentSleep)
-
-    if (daylight != null) {
-      parts.push(norm(daylight, 15, 120))
-      inputs.push(`${Math.round(daylight)} min daylight a day`)
-    }
-    if (mindful != null && mindful > 0) {
-      parts.push(norm(mindful, 0, 20))
-      inputs.push(`${Math.round(mindful)} mindful minutes a day`)
-    }
-    if (cons.bedtimeStdevH != null) {
-      parts.push(1 - norm(cons.bedtimeStdevH, 0.5, 3))
-      inputs.push('Schedule regularity')
-    }
-    out.push(make('mental', parts, inputs,
-      'Daylight exposure, mindful minutes and how regular your days are.'))
-  }
-
-  // ----------------------------------------------------------- hearing
-  {
-    const inputs: string[] = []
-    const parts: number[] = []
-    const env = recent(metric('env_audio_db'), days)
-    const head = recent(metric('headphone_audio_db'), days)
-
-    if (env != null) {
-      // 70 dB and below is comfortable; sustained 85 dB and above is not.
-      parts.push(1 - norm(env, 60, 85))
-      inputs.push(`${Math.round(env)} dB around you`)
-    }
-    if (head != null) {
-      parts.push(1 - norm(head, 60, 85))
-      inputs.push(`${Math.round(head)} dB in headphones`)
-    }
-    out.push(make('hearing', parts, inputs, 'Sound exposure, from the world and from headphones.'))
-  }
-
-  // ---------------------------------------------------------- nutrition
-  {
-    const inputs: string[] = []
-    const parts: number[] = []
-    const water = recent(metric('water_l'), days)
-    const diet = recent(metric('dietary_energy_kcal'), days)
-
-    if (water != null && water > 0) {
-      parts.push(norm(water, 0.5, 2.5))
-      inputs.push(`${water.toFixed(1)} L water a day`)
-    }
-    if (diet != null && diet > 0) {
-      parts.push(norm(diet, 1200, 2400))
-      inputs.push(`${Math.round(diet)} kcal logged a day`)
-    }
-    out.push(make('nutrition', parts, inputs, 'Whatever you log for food and water.'))
+    out.push(make('metabolic', parts, inputs,
+      'Total energy burned across the day, resting metabolism included.'))
   }
 
   return out
@@ -407,7 +388,7 @@ export interface Insight {
  * numbers show.
  */
 export function buildInsights(input: ScoreInput): Insight[] {
-  const { days, sleepByDay, recoveries, cycles, metric } = input
+  const { days, sleepByDay, recoveries, cycles, workouts } = input
   const out: Insight[] = []
   const last7 = days.slice(-7)
   const prior21 = days.slice(-28, -7)
@@ -444,8 +425,8 @@ export function buildInsights(input: ScoreInput): Insight[] {
   }
 
   // Resting heart rate drift.
-  const rhr7 = avg(last7, (d) => recoveries.get(d)?.resting_hr ?? metric('resting_hr').get(d))
-  const rhr21 = avg(prior21, (d) => recoveries.get(d)?.resting_hr ?? metric('resting_hr').get(d))
+  const rhr7 = avg(last7, (d) => recoveries.get(d)?.resting_hr)
+  const rhr21 = avg(prior21, (d) => recoveries.get(d)?.resting_hr)
   if (rhr7 != null && rhr21 != null && rhr7 - rhr21 >= 2) {
     out.push({
       category: 'heart',
@@ -465,24 +446,26 @@ export function buildInsights(input: ScoreInput): Insight[] {
   })
   if (daytime.length >= 2) {
     out.push({
-      category: 'mental',
+      category: 'recovery',
       headline: `${daytime.length} daytime sleeps this week`,
       body: 'Sleep centred in daylight hours is the pattern that follows overnight shifts. The Sleep tab compares those nights against your normal ones.',
       tone: 'neutral',
     })
   }
 
-  // A new peak, which is the example Apple gives for the Insights feed.
-  const vo2 = metric('vo2_max')
-  if (vo2.size > 8) {
-    const entries = [...vo2.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-    const latest = entries[entries.length - 1]
-    const best = entries.slice(0, -1).reduce((m, e) => (e[1] > m ? e[1] : m), -Infinity)
-    if (latest[1] > best) {
+  // A new peak. Apple's example for this feed was VO2 max, which needs a
+  // Watch; HRV is the equivalent signal Whoop measures every night.
+  const hrvSeries = days
+    .map((d) => ({ day: d, value: recoveries.get(d)?.hrv_ms }))
+    .filter((e): e is { day: string; value: number } => e.value != null)
+  if (hrvSeries.length > 8) {
+    const latest = hrvSeries[hrvSeries.length - 1]
+    const best = hrvSeries.slice(0, -1).reduce((m, e) => Math.max(m, e.value), -Infinity)
+    if (latest.value > best) {
       out.push({
         category: 'heart',
-        headline: 'New VO2 max peak',
-        body: `${latest[1].toFixed(1)} mL/kg/min is the highest cardio fitness reading in this range.`,
+        headline: 'New HRV high',
+        body: `${Math.round(latest.value)} ms is the highest overnight reading in this range.`,
         tone: 'good',
       })
     }
@@ -500,16 +483,30 @@ export function buildInsights(input: ScoreInput): Insight[] {
     })
   }
 
-  // Steps.
-  const steps7 = avg(last7, (d) => metric('steps').get(d))
-  const steps21 = avg(prior21, (d) => metric('steps').get(d))
-  if (steps7 != null && steps21 != null && Math.abs(steps7 - steps21) > 1200) {
-    const up = steps7 > steps21
+  // Time in logged workouts, the Whoop stand-in for a step count. Days with
+  // no workout count as zero so a rest week reads as one.
+  const trainingOn = (day: string) =>
+    workouts.reduce((sum, w) => (w.day === day ? sum + (w.duration_min ?? 0) : sum), 0)
+  const train7 = mean(last7.map(trainingOn))
+  const train21 = mean(prior21.map(trainingOn))
+  if (train7 != null && train21 != null && Math.abs(train7 - train21) >= 10) {
+    const up = train7 > train21
     out.push({
       category: 'movement',
-      headline: up ? 'You are moving more' : 'You are moving less',
-      body: `${Math.round(steps7).toLocaleString()} steps a day this week against ${Math.round(steps21).toLocaleString()} before.`,
+      headline: up ? 'You are training more' : 'You are training less',
+      body: `${Math.round(train7)} minutes a day this week against ${Math.round(train21)} before.`,
       tone: up ? 'good' : 'neutral',
+    })
+  }
+
+  // Sleep debt, which is the number a shift schedule moves first.
+  const debt7 = avg(last7, (d) => sleepByDay.get(d)?.debt_min)
+  if (debt7 != null && debt7 >= 45) {
+    out.push({
+      category: 'sleep',
+      headline: 'Sleep debt is building',
+      body: `Whoop has you carrying about ${Math.round(debt7)} minutes of debt a night this week. It is added to what you need tonight, so it compounds until a long night clears it.`,
+      tone: 'warning',
     })
   }
 

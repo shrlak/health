@@ -31,7 +31,7 @@ function Panel({
   items: Array<{ key: string; label: string; color: string; text: string }>
 }) {
   return (
-    <div className="rounded-[12px] bg-[var(--surface-1)] px-3 py-2 shadow-lg ring-1 ring-[var(--separator)]">
+    <div className="glass rounded-[12px] px-3 py-2 ring-1 ring-[var(--separator)]">
       <div className="t-caption mb-1 font-semibold text-[var(--label-2)]">{label}</div>
       <ul className="space-y-0.5">
         {items.map((i) => (

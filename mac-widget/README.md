@@ -35,9 +35,9 @@ immediately; run `./setup.sh` again with a new one to restore it.
 ## How fresh the numbers are
 
 The widget asks for new data about every fifteen minutes, though WidgetKit
-budgets refreshes and treats that as a request rather than a promise. Behind
-it, the backend re-pulls from Whoop every six hours, so the number the widget
-shows is at most a few hours behind Whoop itself.
+budgets refreshes and treats that as a request rather than a promise. Behind it,
+the backend re-pulls from Whoop on the same quarter-hourly cadence, so the
+number the widget shows is rarely more than half an hour behind Whoop itself.
 
 Whoop scores a night when you wake, so the newest complete day is often
 yesterday's date — the widget labels which day it is showing rather than

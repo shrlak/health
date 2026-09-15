@@ -61,6 +61,7 @@ function fromRecord<T>(
 }
 
 export const METRICS: MetricDef[] = [
+  // ------------------------------------------------------------------ sleep
   {
     key: 'sleep-duration',
     label: 'Sleep',
@@ -73,12 +74,81 @@ export const METRICS: MetricDef[] = [
     goal: { value: 480, label: '8h' },
     better: 'higher',
     description:
-      'Time actually asleep, excluding time awake in bed. Whoop is preferred where both it and Apple Watch recorded the night.',
-    source: 'Whoop, Apple Watch',
+      'Time actually asleep, excluding time awake in bed. Naps are kept out of this so a day sleep after a night shift does not double-count.',
+    source: 'Whoop',
     format: hm,
     formatShort: hm,
     formatAxis: (v) => `${Math.round(v / 60)}h`,
     series: (d) => fromRecord(d.sleepByDay, (s) => s.asleep_min),
+  },
+  {
+    key: 'sleep-performance',
+    label: 'Sleep Performance',
+    category: 'sleep',
+    unit: '%',
+    agg: 'avg',
+    perDay: 'One score per night, calculated by Whoop',
+    chart: 'bar',
+    goal: { value: 85, label: '85%' },
+    better: 'higher',
+    description:
+      'How much of the sleep Whoop said you needed you actually got. Need is not a fixed eight hours: it rises with the previous day\'s strain and with any debt you are carrying.',
+    source: 'Whoop',
+    format: (v) => `${n0(v)}%`,
+    formatShort: (v) => `${n0(v)}%`,
+    formatAxis: (v) => `${n0(v)}%`,
+    series: (d) => fromRecord(d.sleepByDay, (s) => s.performance_pct),
+  },
+  {
+    key: 'sleep-need',
+    label: 'Sleep Need',
+    category: 'sleep',
+    unit: 'per night',
+    agg: 'avg',
+    perDay: 'One value per night, calculated by Whoop',
+    chart: 'line',
+    better: 'neither',
+    description:
+      'What Whoop reckoned you needed that night: a baseline, plus what the previous day\'s strain added, plus whatever debt had built up, less any napping.',
+    source: 'Whoop',
+    format: hm,
+    formatShort: hm,
+    formatAxis: (v) => `${Math.round(v / 60)}h`,
+    series: (d) => fromRecord(d.sleepByDay, (s) => s.need_min),
+  },
+  {
+    key: 'sleep-debt',
+    label: 'Sleep Debt',
+    category: 'sleep',
+    unit: 'per night',
+    agg: 'avg',
+    perDay: 'One value per night, carried forward by Whoop',
+    chart: 'area',
+    better: 'lower',
+    description:
+      'Sleep owed from previous nights, which Whoop adds to what you need tonight. It is the part of the need figure you can actually do something about.',
+    source: 'Whoop',
+    format: hm,
+    formatShort: hm,
+    formatAxis: (v) => `${Math.round(v / 60)}h`,
+    series: (d) => fromRecord(d.sleepByDay, (s) => s.debt_min),
+  },
+  {
+    key: 'time-in-bed',
+    label: 'Time in Bed',
+    category: 'sleep',
+    unit: 'per night',
+    agg: 'avg',
+    perDay: 'One value per night, from the main sleep session',
+    chart: 'bar',
+    better: 'neither',
+    description:
+      'From falling asleep to getting up, awake stretches included. The gap between this and time asleep is what sleep efficiency measures.',
+    source: 'Whoop',
+    format: hm,
+    formatShort: hm,
+    formatAxis: (v) => `${Math.round(v / 60)}h`,
+    series: (d) => fromRecord(d.sleepByDay, (s) => s.duration_min),
   },
   {
     key: 'sleep-efficiency',
@@ -91,12 +161,100 @@ export const METRICS: MetricDef[] = [
     goal: { value: 85, label: '85%' },
     better: 'higher',
     description: 'Share of time in bed actually spent asleep. Below about 85% usually means restless nights.',
-    source: 'Whoop, Apple Watch',
+    source: 'Whoop',
     format: (v) => `${n0(v)}%`,
     formatShort: (v) => `${n0(v)}%`,
     formatAxis: (v) => `${n0(v)}%`,
     series: (d) => fromRecord(d.sleepByDay, (s) => s.efficiency_pct),
   },
+  {
+    key: 'rem-sleep',
+    label: 'REM Sleep',
+    category: 'sleep',
+    unit: 'per night',
+    agg: 'avg',
+    perDay: 'One value per night, from the main sleep session',
+    chart: 'bar',
+    better: 'higher',
+    description:
+      'Time in REM, the stage associated with memory and learning. It tends to sit around a fifth to a quarter of a night and is the first thing a short night cuts.',
+    source: 'Whoop',
+    format: hm,
+    formatShort: hm,
+    formatAxis: (v) => `${Math.round(v / 60)}h`,
+    series: (d) => fromRecord(d.sleepByDay, (s) => s.rem_min),
+  },
+  {
+    key: 'deep-sleep',
+    label: 'Deep Sleep',
+    longLabel: 'Deep (Slow Wave) Sleep',
+    category: 'sleep',
+    unit: 'per night',
+    agg: 'avg',
+    perDay: 'One value per night, from the main sleep session',
+    chart: 'bar',
+    better: 'higher',
+    description:
+      'Slow-wave sleep, the stage that does most of the physical repair. It is front-loaded into the first half of a night, so a late bedtime costs it disproportionately.',
+    source: 'Whoop',
+    format: hm,
+    formatShort: hm,
+    formatAxis: (v) => `${Math.round(v / 60)}h`,
+    series: (d) => fromRecord(d.sleepByDay, (s) => s.deep_min),
+  },
+  {
+    key: 'light-sleep',
+    label: 'Light Sleep',
+    category: 'sleep',
+    unit: 'per night',
+    agg: 'avg',
+    perDay: 'One value per night, from the main sleep session',
+    chart: 'bar',
+    better: 'neither',
+    description:
+      'The remainder of the night once REM and deep are counted. Most of a normal night is light sleep, so this moves with total sleep rather than telling you much on its own.',
+    source: 'Whoop',
+    format: hm,
+    formatShort: hm,
+    formatAxis: (v) => `${Math.round(v / 60)}h`,
+    series: (d) => fromRecord(d.sleepByDay, (s) => s.light_min),
+  },
+  {
+    key: 'awake-time',
+    label: 'Awake in Bed',
+    category: 'sleep',
+    unit: 'per night',
+    agg: 'avg',
+    perDay: 'One value per night, from the main sleep session',
+    chart: 'bar',
+    better: 'lower',
+    description:
+      'Time awake between falling asleep and getting up. Some is normal; a lot of it is what pulls sleep efficiency down.',
+    source: 'Whoop',
+    format: hm,
+    formatShort: hm,
+    formatAxis: (v) => `${n0(v)}m`,
+    series: (d) => fromRecord(d.sleepByDay, (s) => s.awake_min),
+  },
+  {
+    key: 'disturbances',
+    label: 'Disturbances',
+    category: 'sleep',
+    unit: 'per night',
+    agg: 'avg',
+    perDay: 'One count per night, from the main sleep session',
+    chart: 'bar',
+    better: 'lower',
+    description:
+      'Times Whoop saw you surface during the night. Useful next to a noisy room or a late meal rather than on its own.',
+    source: 'Whoop',
+    format: n0,
+    formatShort: n0,
+    formatAxis: n0,
+    series: (d) => fromRecord(d.sleepByDay, (s) => s.disturbances),
+  },
+
+  // ------------------------------------------------------------------ heart
   {
     key: 'recovery',
     label: 'Recovery',
@@ -127,17 +285,11 @@ export const METRICS: MetricDef[] = [
     better: 'higher',
     description:
       'Variation between heartbeats, measured overnight. Read it against your own baseline rather than against other people: a drop usually follows short sleep, hard training or illness.',
-    source: 'Whoop, Apple Watch',
+    source: 'Whoop',
     format: (v) => `${n0(v)} ms`,
     formatShort: (v) => n0(v),
     formatAxis: n0,
-    series: (d) => {
-      const whoop = fromRecord(d.recoveries, (r) => r.hrv_ms)
-      const apple = d.metric('hrv_ms')
-      // Whoop's chest-strap reading wins; Apple fills the gaps.
-      for (const [day, v] of apple) if (!whoop.has(day)) whoop.set(day, v)
-      return whoop
-    },
+    series: (d) => fromRecord(d.recoveries, (r) => r.hrv_ms),
   },
   {
     key: 'resting-hr',
@@ -151,17 +303,102 @@ export const METRICS: MetricDef[] = [
     better: 'lower',
     description:
       'Heart rate at rest, measured overnight. A sustained rise often shows up a day or two before you feel run down.',
-    source: 'Whoop, Apple Watch',
+    source: 'Whoop',
     format: (v) => `${n0(v)} bpm`,
     formatShort: (v) => n0(v),
     formatAxis: n0,
-    series: (d) => {
-      const whoop = fromRecord(d.recoveries, (r) => r.resting_hr)
-      const apple = d.metric('resting_hr')
-      for (const [day, v] of apple) if (!whoop.has(day)) whoop.set(day, v)
-      return whoop
-    },
+    series: (d) => fromRecord(d.recoveries, (r) => r.resting_hr),
   },
+  {
+    key: 'avg-hr',
+    label: 'Average HR',
+    longLabel: 'Average Heart Rate',
+    category: 'heart',
+    unit: 'bpm',
+    agg: 'avg',
+    perDay: 'One value per day, averaged by Whoop across the whole cycle',
+    chart: 'line',
+    better: 'neither',
+    description:
+      'Your heart rate averaged over the entire day, sleep included. It moves with how active the day was and with how well you recovered from it.',
+    source: 'Whoop',
+    format: (v) => `${n0(v)} bpm`,
+    formatShort: n0,
+    formatAxis: n0,
+    series: (d) => fromRecord(d.cycles, (c) => c.avg_hr),
+  },
+  {
+    key: 'max-hr',
+    label: 'Peak HR',
+    longLabel: 'Peak Heart Rate',
+    category: 'heart',
+    unit: 'bpm',
+    agg: 'max',
+    perDay: 'The highest reading Whoop saw that day',
+    chart: 'line',
+    better: 'neither',
+    description:
+      'The highest heart rate of the day. On a training day it says how hard the hardest effort was; on a rest day it mostly reflects stairs and stress.',
+    source: 'Whoop',
+    format: (v) => `${n0(v)} bpm`,
+    formatShort: n0,
+    formatAxis: n0,
+    series: (d) => fromRecord(d.cycles, (c) => c.max_hr),
+  },
+  {
+    key: 'skin-temp',
+    label: 'Skin Temperature',
+    category: 'heart',
+    unit: 'C',
+    agg: 'avg',
+    perDay: 'One value per night, measured during sleep',
+    chart: 'line',
+    better: 'neither',
+    description:
+      'Skin temperature overnight. The absolute number matters less than a departure from your own baseline, which often precedes feeling ill.',
+    source: 'Whoop',
+    format: (v) => `${n1(v)} C`,
+    formatShort: n1,
+    formatAxis: n1,
+    series: (d) => fromRecord(d.recoveries, (r) => r.skin_temp_c),
+  },
+
+  // ------------------------------------------------------------ respiratory
+  {
+    key: 'spo2',
+    label: 'Blood Oxygen',
+    category: 'respiratory',
+    unit: '%',
+    agg: 'avg',
+    perDay: 'One value per night, sampled during sleep',
+    chart: 'line',
+    better: 'higher',
+    description: 'Share of your red blood cells carrying oxygen, sampled overnight.',
+    source: 'Whoop',
+    format: (v) => `${n1(v)}%`,
+    formatShort: (v) => `${n0(v)}%`,
+    formatAxis: n0,
+    series: (d) => fromRecord(d.recoveries, (r) => r.spo2_pct),
+  },
+  {
+    key: 'respiratory-rate',
+    label: 'Respiratory Rate',
+    category: 'respiratory',
+    unit: 'br/min',
+    agg: 'avg',
+    perDay: 'One value per night, measured during sleep',
+    chart: 'line',
+    better: 'neither',
+    description: 'Breaths per minute while asleep. Steady normally, and it drifts up when you are fighting something off.',
+    source: 'Whoop',
+    format: (v) => `${n1(v)} br/min`,
+    formatShort: n1,
+    formatAxis: n1,
+    // Whoop reports this on the sleep record, not the recovery one.
+    series: (d) => fromRecord(d.sleepByDay, (s) => s.respiratory_rate),
+  },
+
+  // ------------------------------------------------------------------- move
   {
     key: 'strain',
     label: 'Strain',
@@ -182,182 +419,72 @@ export const METRICS: MetricDef[] = [
     series: (d) => fromRecord(d.cycles, (c) => c.strain),
   },
   {
-    key: 'steps',
-    label: 'Steps',
-    category: 'move',
-    unit: 'per day',
-    agg: 'sum',
-    chart: 'bar',
-    goal: { value: 10000, label: '10k' },
-    better: 'higher',
-    description: 'Steps counted by your iPhone and Apple Watch, combined and de-duplicated by Apple Health.',
-    source: 'Apple Health',
-    format: n0,
-    formatShort: (v) => (v >= 10000 ? `${n1(v / 1000)}k` : n0(v)),
-    formatAxis: (v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : n0(v)),
-    series: (d) => d.metric('steps'),
-  },
-  {
-    key: 'active-energy',
-    label: 'Active Energy',
-    category: 'move',
-    unit: 'kcal',
-    agg: 'sum',
-    chart: 'bar',
-    better: 'higher',
-    description: 'Calories burned above resting, from movement and training.',
-    source: 'Apple Health, Whoop',
-    format: (v) => `${n0(v)} kcal`,
-    formatShort: n0,
-    formatAxis: n0,
-    series: (d) => {
-      const apple = d.metric('active_energy_kcal')
-      if (apple.size) return apple
-      // Whoop stores kilojoules; the dashboard talks in kilocalories.
-      return fromRecord(d.cycles, (c) => (c.kilojoules == null ? null : c.kilojoules / 4.184))
-    },
-  },
-  {
-    key: 'exercise',
-    label: 'Exercise',
-    longLabel: 'Exercise Minutes',
+    key: 'training-time',
+    label: 'Training Time',
     category: 'move',
     unit: 'per day',
     agg: 'sum',
     chart: 'bar',
     goal: { value: 30, label: '30m' },
     better: 'higher',
-    description: 'Minutes at brisk-walk intensity or above, as Apple Health counts them.',
-    source: 'Apple Health',
+    description: 'Time in logged workouts, summed across the day.',
+    source: 'Whoop',
     format: hm,
     formatShort: hm,
     formatAxis: (v) => `${n0(v)}m`,
-    series: (d) => d.metric('exercise_min'),
+    series: (d) => {
+      const out = new Map<string, number>()
+      for (const w of d.workouts) {
+        if (w.duration_min == null) continue
+        out.set(w.day, (out.get(w.day) ?? 0) + w.duration_min)
+      }
+      return out
+    },
   },
   {
-    key: 'distance',
+    key: 'workout-distance',
     label: 'Distance',
-    longLabel: 'Walking + Running Distance',
+    longLabel: 'Distance Covered',
     category: 'move',
     unit: 'km',
     agg: 'sum',
     chart: 'bar',
     better: 'higher',
-    description: 'Distance covered on foot, normalised to kilometres regardless of the units your export used.',
-    source: 'Apple Health',
+    description:
+      'Distance across logged workouts. Only activities where Whoop recorded distance contribute, so lifting and similar count as zero.',
+    source: 'Whoop',
     format: (v) => `${n2(v)} km`,
     formatShort: n1,
     formatAxis: n0,
-    series: (d) => d.metric('distance_km'),
-  },
-  {
-    key: 'vo2-max',
-    label: 'VO2 Max',
-    longLabel: 'Cardio Fitness',
-    category: 'heart',
-    unit: 'mL/kg/min',
-    agg: 'max',
-    perDay: 'Estimated occasionally; the highest reading of the day is kept',
-    chart: 'line',
-    better: 'higher',
-    description:
-      "Apple's estimate of your cardio fitness. It moves slowly, so read the shape over months rather than day to day.",
-    source: 'Apple Watch',
-    format: n1,
-    formatShort: n1,
-    formatAxis: n0,
-    series: (d) => d.metric('vo2_max'),
-  },
-  {
-    key: 'spo2',
-    label: 'Blood Oxygen',
-    category: 'respiratory',
-    unit: '%',
-    agg: 'avg',
-    perDay: 'One value per night, sampled during sleep',
-    chart: 'line',
-    better: 'higher',
-    description: 'Share of your red blood cells carrying oxygen, sampled overnight.',
-    source: 'Apple Watch, Whoop',
-    format: (v) => `${n1(v)}%`,
-    formatShort: (v) => `${n0(v)}%`,
-    formatAxis: n0,
     series: (d) => {
-      const whoop = fromRecord(d.recoveries, (r) => r.spo2_pct)
-      const apple = d.metric('spo2_pct')
-      for (const [day, v] of apple) if (!whoop.has(day)) whoop.set(day, v)
-      return whoop
+      const out = new Map<string, number>()
+      for (const w of d.workouts) {
+        if (w.distance_km == null) continue
+        out.set(w.day, (out.get(w.day) ?? 0) + w.distance_km)
+      }
+      return out
     },
   },
+
+  // -------------------------------------------------------------- metabolic
   {
-    key: 'respiratory-rate',
-    label: 'Respiratory Rate',
-    category: 'respiratory',
-    unit: 'br/min',
-    agg: 'avg',
-    perDay: 'One value per night, measured during sleep',
-    chart: 'line',
-    better: 'neither',
-    description: 'Breaths per minute while asleep. Steady normally, and it drifts up when you are fighting something off.',
-    source: 'Whoop, Apple Watch',
-    format: (v) => `${n1(v)} br/min`,
-    formatShort: n1,
-    formatAxis: n1,
-    series: (d) => {
-      const whoop = fromRecord(d.recoveries, (r) => r.respiratory_rate)
-      const apple = d.metric('respiratory_rate')
-      for (const [day, v] of apple) if (!whoop.has(day)) whoop.set(day, v)
-      return whoop
-    },
-  },
-  {
-    key: 'daylight',
-    label: 'Daylight',
-    longLabel: 'Time in Daylight',
-    category: 'mental',
-    unit: 'per day',
-    agg: 'sum',
-    chart: 'bar',
-    better: 'higher',
-    description:
-      'Time spent outdoors in daylight. Worth watching alongside sleep if your schedule pushes you indoors at odd hours.',
-    source: 'Apple Watch',
-    format: hm,
-    formatShort: hm,
-    formatAxis: (v) => `${Math.round(v / 60)}h`,
-    series: (d) => d.metric('daylight_min'),
-  },
-  {
-    key: 'flights',
-    label: 'Flights Climbed',
-    category: 'move',
-    unit: 'per day',
-    agg: 'sum',
-    chart: 'bar',
-    better: 'higher',
-    description: 'Floors climbed, as counted by the barometer in your iPhone or Watch.',
-    source: 'Apple Health',
-    format: n0,
-    formatShort: n0,
-    formatAxis: n0,
-    series: (d) => d.metric('flights_climbed'),
-  },
-  {
-    key: 'body-mass',
-    label: 'Weight',
-    longLabel: 'Body Mass',
+    key: 'energy',
+    label: 'Energy Burned',
     category: 'metabolic',
-    unit: 'kg',
-    agg: 'avg',
-    perDay: 'Whatever you weighed in at, averaged if you logged more than once',
-    chart: 'line',
+    unit: 'kcal',
+    agg: 'sum',
+    perDay: 'One total per day, accumulated by Whoop across the whole cycle',
+    chart: 'bar',
     better: 'neither',
-    description: 'Body mass, normalised to kilograms regardless of the units your export used.',
-    source: 'Apple Health',
-    format: (v) => `${n1(v)} kg`,
-    formatShort: n1,
-    formatAxis: n1,
-    series: (d) => d.metric('body_mass_kg'),
+    description:
+      'Total energy for the day, resting metabolism included — Whoop measures the whole cycle rather than only the active part, so this is a larger number than an active-calories figure.',
+    source: 'Whoop',
+    format: (v) => `${n0(v)} kcal`,
+    formatShort: (v) => (v >= 1000 ? `${n1(v / 1000)}k` : n0(v)),
+    formatAxis: (v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : n0(v)),
+    // Whoop stores kilojoules; the dashboard talks in kilocalories.
+    series: (d) =>
+      fromRecord(d.cycles, (c) => (c.kilojoules == null ? null : c.kilojoules / 4.184)),
   },
 ]
 
@@ -365,10 +492,12 @@ export const METRIC_BY_KEY = new Map(METRICS.map((m) => [m.key, m]))
 
 /** The order the home page shows them in, most useful first. */
 export const SUMMARY_ORDER = [
-  'sleep-duration', 'recovery', 'strain', 'steps',
-  'hrv', 'resting-hr', 'active-energy', 'exercise',
-  'sleep-efficiency', 'vo2-max', 'spo2', 'respiratory-rate',
-  'distance', 'daylight', 'flights', 'body-mass',
+  'recovery', 'strain', 'sleep-duration', 'sleep-performance',
+  'hrv', 'resting-hr', 'energy', 'training-time',
+  'sleep-efficiency', 'sleep-debt', 'rem-sleep', 'deep-sleep',
+  'spo2', 'respiratory-rate', 'avg-hr', 'max-hr',
+  'skin-temp', 'time-in-bed', 'light-sleep', 'awake-time',
+  'disturbances', 'sleep-need', 'workout-distance',
 ]
 
 /** Section each metric's detail page offers as a way back up. */

@@ -12,8 +12,6 @@ export function Strain({ d }: { d: Derived }) {
   const { palette } = useTheme()
 
   const rows = useMemo(() => {
-    const exercise = d.metric('exercise_min')
-    const active = d.metric('active_energy_kcal')
     const workoutMin = new Map<string, number>()
     for (const w of d.workouts) {
       workoutMin.set(w.day, (workoutMin.get(w.day) ?? 0) + (w.duration_min ?? 0))
@@ -24,9 +22,10 @@ export function Strain({ d }: { d: Derived }) {
       // Whoop stores kilojoules; the dashboard talks in kilocalories.
       energy: (day) => {
         const kj = d.cycles.get(day)?.kilojoules
-        return typeof kj === 'number' ? kj / 4.184 : active.get(day) ?? null
+        return typeof kj === 'number' ? kj / 4.184 : null
       },
-      trainingMin: (day) => workoutMin.get(day) ?? exercise.get(day) ?? null,
+      maxHr: (day) => d.cycles.get(day)?.max_hr ?? null,
+      trainingMin: (day) => workoutMin.get(day) ?? null,
     })
   }, [d])
 
@@ -100,7 +99,7 @@ export function Strain({ d }: { d: Derived }) {
     return (
       <Empty
         title="No training data"
-        body="Workouts come from both Apple Health and Whoop; strain is Whoop only. Import an export to fill this in."
+        body="Strain and workouts come from Whoop. Connect it to fill this in."
       />
     )
   }

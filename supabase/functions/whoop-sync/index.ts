@@ -14,8 +14,9 @@ import {
  *     only that user
  *
  * Incremental by default: it asks for everything since the last successful
- * sync, less a day of overlap, because Whoop revises a night's scores for a
- * while after it ends. Upserts make the overlap harmless.
+ * sync, less two days of overlap, because Whoop revises a night's scores for a
+ * while after it ends. Upserts make the overlap harmless, and keep each
+ * quarter-hourly run down to four small requests.
  */
 
 const OVERLAP_DAYS = 2
@@ -27,9 +28,12 @@ interface TokenRow {
   refresh_token: string
   expires_at: string
   last_sync_at: string | null
+  last_day: string | null
 }
 
-async function syncUser(admin: SupabaseClient, row: TokenRow): Promise<number> {
+async function syncUser(
+  admin: SupabaseClient, row: TokenRow, logImport: boolean,
+): Promise<number> {
   const clientId = env('WHOOP_CLIENT_ID')
   const clientSecret = env('WHOOP_CLIENT_SECRET')
 
@@ -77,23 +81,37 @@ async function syncUser(admin: SupabaseClient, row: TokenRow): Promise<number> {
 
   const days = [...cycles, ...recovery, ...sleep, ...workouts]
     .map((r) => r.day as string).filter(Boolean).sort()
+  const newestDay = days[days.length - 1] ?? null
 
-  await admin.from('imports').insert({
-    user_id: row.user_id,
-    source: 'whoop_api',
-    filename: 'Automatic sync',
-    status: 'complete',
-    rows_imported: written,
-    range_start: days[0] ?? null,
-    range_end: days[days.length - 1] ?? null,
-    completed_at: new Date().toISOString(),
-  })
+  // At four runs an hour, logging every one would bury the import history
+  // under rows saying nothing happened. A scheduled run is recorded only when
+  // it brings a day this account has not seen before; pressing "Sync now" is
+  // always recorded, because someone is waiting to see that it did something.
+  const broughtANewDay = !!newestDay && (!row.last_day || newestDay > row.last_day)
+
+  if (logImport || broughtANewDay) {
+    await admin.from('imports').insert({
+      user_id: row.user_id,
+      source: 'whoop_api',
+      filename: logImport ? 'Manual sync' : 'Automatic sync',
+      status: 'complete',
+      rows_imported: written,
+      range_start: days[0] ?? null,
+      range_end: newestDay,
+      completed_at: new Date().toISOString(),
+    })
+  }
 
   await admin.from('whoop_tokens').update({
     last_sync_at: new Date().toISOString(),
     last_sync_status: 'ok',
     last_error: null,
     rows_last_sync: written,
+    // Only ever moves forward, so a Whoop revision to an older day cannot
+    // make the next run look like it found something new.
+    last_day: newestDay && (!row.last_day || newestDay > row.last_day)
+      ? newestDay
+      : row.last_day,
   }).eq('user_id', row.user_id)
 
   return written
@@ -137,7 +155,7 @@ Deno.serve(async (req) => {
     if (!isCron && !token) return json({ error: 'Missing authorization' }, 401)
 
     let query = admin.from('whoop_tokens')
-      .select('user_id, access_token, refresh_token, expires_at, last_sync_at')
+      .select('user_id, access_token, refresh_token, expires_at, last_sync_at, last_day')
 
     if (!isCron) {
       const { data: userData, error } = await admin.auth.getUser(token)
@@ -152,7 +170,7 @@ Deno.serve(async (req) => {
     const results: Array<{ user_id: string; rows?: number; error?: string }> = []
     for (const row of rows as TokenRow[]) {
       try {
-        results.push({ user_id: row.user_id, rows: await syncUser(admin, row) })
+        results.push({ user_id: row.user_id, rows: await syncUser(admin, row, !isCron) })
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e)
         // One account's failure must not stop the rest of the scheduled run.

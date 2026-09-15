@@ -3,7 +3,7 @@ import { useAuth } from './hooks/useAuth'
 import { useHealthData } from './hooks/useHealthData'
 import { Auth } from './components/Auth'
 import { Home } from './views/Home'
-import { useDerived, RANGES } from './views/common'
+import { useDerived, RANGES, ALL_RANGE } from './views/common'
 import { Segmented, Spinner } from './components/ui'
 import { supabase, isConfigured } from './lib/supabase'
 import { useTheme, type ThemeChoice } from './lib/theme'
@@ -21,7 +21,6 @@ const Longevity = lazy(() => import('./views/Longevity').then((m) => ({ default:
 const Sleep = lazy(() => import('./views/Sleep').then((m) => ({ default: m.Sleep })))
 const Recovery = lazy(() => import('./views/Recovery').then((m) => ({ default: m.Recovery })))
 const Strain = lazy(() => import('./views/Strain').then((m) => ({ default: m.Strain })))
-const Activity = lazy(() => import('./views/Activity').then((m) => ({ default: m.Activity })))
 const MetricDetail = lazy(() =>
   import('./views/MetricDetail').then((m) => ({ default: m.MetricDetail })))
 const ImportPanel = lazy(() =>
@@ -45,12 +44,13 @@ const TABS: TabDef[] = [
 export default function App() {
   const { session, loading: authLoading, user } = useAuth()
   const { route } = useRouter()
-  const [range, setRange] = useState<string>('90')
+  const [range, setRange] = useState<string>('30')
   const mainRef = useRef<HTMLElement>(null)
 
-  const since = range === '1825' ? null : daysAgoISO(Number(range))
+  const isAll = range === ALL_RANGE
+  const since = isAll ? null : daysAgoISO(Number(range))
   const { data, imports, loading, error, reload } = useHealthData(user?.id ?? null, since)
-  const derived = useDerived(data, Number(range))
+  const derived = useDerived(data, isAll ? null : Number(range))
 
   useScrollReset(route.path, mainRef)
 
@@ -122,7 +122,7 @@ export default function App() {
                 : route.path === '/longevity' ? <Longevity d={derived} />
                 : route.path === '/sleep' ? <Sleep d={derived} />
                 : route.path === '/heart' ? <Recovery d={derived} />
-                : route.path === '/move' ? <Move d={derived} />
+                : route.path === '/move' ? <Strain d={derived} />
                 : route.path === '/connections' ? <Connections />
                 : route.path === '/import' && user
                   ? <ImportPanel userId={user.id} imports={imports} onDone={reload} />
@@ -137,20 +137,9 @@ export default function App() {
   )
 }
 
-/** Move combines training load with everyday activity, the way the Health app
- *  groups Activity rather than splitting by which device recorded it. */
-function Move({ d }: { d: ReturnType<typeof useDerived> }) {
-  return (
-    <div className="space-y-6">
-      <Strain d={d} />
-      <Activity d={d} />
-    </div>
-  )
-}
-
 function NotFound() {
   return (
-    <div className="rounded-[var(--r-card)] bg-[var(--surface-1)] p-10 text-center">
+    <div className="panel rounded-[var(--r-card)] p-10 text-center">
       <p className="t-headline text-[var(--label)]">Page not found</p>
       <p className="t-subhead mx-auto mt-1.5 max-w-md text-[var(--label-2)]">
         That link does not match anything in this dashboard.
@@ -178,7 +167,13 @@ function Header({
   const { back } = useRouter()
 
   return (
-    <header className="sticky top-0 z-20 mb-4 border-b border-[var(--separator)] bg-[var(--bg-grouped)]/85 backdrop-blur-xl">
+    <header className="sticky top-0 z-20 mb-4 border-b border-[var(--separator)] bg-[var(--bg-grouped)]/75 backdrop-blur-xl backdrop-saturate-150">
+      {/* A lit rule under the header, brightest in the middle, so the chrome
+          has an edge without a hard line across the whole width. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[var(--tint)] to-transparent opacity-40"
+      />
       <div className="mx-auto w-full max-w-5xl px-4 pt-3 pb-3 sm:px-6 sm:pt-4">
         {showBack && (
           <button
@@ -199,7 +194,9 @@ function Header({
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <div className="min-w-0">
             <h1 className="t-large-title text-[var(--label)]">{title}</h1>
-            {!showBack && <p className="t-caption truncate text-[var(--label-3)]">{email}</p>}
+            {!showBack && (
+              <p className="t-eyebrow mt-0.5 truncate text-[var(--label-3)]">{email}</p>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -244,7 +241,7 @@ function Header({
               className={
                 't-footnote rounded-[var(--r-pill)] px-3.5 py-1.5 font-medium transition-colors ' +
                 (currentPath === t.path
-                  ? 'bg-[var(--tint)] text-white'
+                  ? 'bg-[var(--tint)] text-[var(--on-tint)] shadow-[0_0_18px_var(--glow)]'
                   : 'text-[var(--label-2)] hover:bg-[var(--fill-2)]')
               }
             >
@@ -277,10 +274,16 @@ function TabBar({ currentPath }: { currentPath: string }) {
                 <Link
                   to={t.path}
                   className={
-                    'flex w-full flex-col items-center gap-0.5 rounded-[20px] py-1.5 transition-colors ' +
+                    'relative flex w-full flex-col items-center gap-0.5 rounded-[20px] py-1.5 transition-colors ' +
                     (active ? 'text-[var(--tint)]' : 'text-[var(--label-3)]')
                   }
                 >
+                  {active && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-x-3 top-0 h-px bg-[var(--tint)] shadow-[0_0_10px_var(--tint)]"
+                    />
+                  )}
                   <TabIcon name={t.icon} active={active} />
                   <span className="t-caption-2 font-medium">{t.short}</span>
                 </Link>

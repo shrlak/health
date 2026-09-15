@@ -51,11 +51,11 @@ export function Auth() {
           </div>
           <h1 className="t-title-1 text-[var(--label)]">Health</h1>
           <p className="t-subhead mt-1 text-[var(--label-2)]">
-            Your Apple Health and Whoop data, in one place.
+            Your Whoop data, in one place.
           </p>
         </div>
 
-        <form onSubmit={submit} className="rounded-[var(--r-card)] bg-[var(--surface-1)] p-5">
+        <form onSubmit={submit} className="panel rounded-[var(--r-card)] p-5">
           <label className="t-footnote block font-medium text-[var(--label-2)]" htmlFor="email">
             Email
           </label>
@@ -89,7 +89,7 @@ export function Auth() {
           <button
             type="submit"
             disabled={busy}
-            className="t-headline mt-5 w-full rounded-[12px] bg-[var(--tint)] px-3 py-2.5 text-white disabled:opacity-50"
+            className="t-headline mt-5 w-full rounded-[12px] bg-[var(--tint)] px-3 py-2.5 text-[var(--on-tint)] disabled:opacity-50"
           >
             {busy ? 'Working...' : mode === 'signup' ? 'Create account' : 'Sign in'}
           </button>

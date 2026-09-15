@@ -13,7 +13,6 @@ import { Longevity } from '../../src/views/Longevity'
 import { Sleep } from '../../src/views/Sleep'
 import { Recovery } from '../../src/views/Recovery'
 import { Strain } from '../../src/views/Strain'
-import { Activity } from '../../src/views/Activity'
 import { MetricDetail } from '../../src/views/MetricDetail'
 import { useDerived } from '../../src/views/common'
 import type { HealthData } from '../../src/lib/analytics'
@@ -89,16 +88,6 @@ function build(days: number): HealthData {
       kilojoules: Math.round((2000 + r() * 1400) * 4.184),
     })
 
-    dailyMetrics.push(
-      { day, metric: 'steps', source: 'apple_health', value: Math.round(3000 + r() * 12000), unit: 'count' },
-      { day, metric: 'active_energy_kcal', source: 'apple_health', value: Math.round(300 + r() * 700), unit: 'kcal' },
-      { day, metric: 'exercise_min', source: 'apple_health', value: Math.round(r() * 80), unit: 'min' },
-      { day, metric: 'distance_km', source: 'apple_health', value: Math.round(r() * 12 * 100) / 100, unit: 'km' },
-      { day, metric: 'vo2_max', source: 'apple_health', value: Math.round((42 + r() * 4) * 10) / 10, unit: 'mL/kg-min' },
-      { day, metric: 'daylight_min', source: 'apple_health', value: Math.round(r() * 200), unit: 'min' },
-      { day, metric: 'flights_climbed', source: 'apple_health', value: Math.round(r() * 22), unit: 'count' },
-      { day, metric: 'resting_hr', source: 'apple_health', value: Math.round(50 + r() * 10), unit: 'bpm' },
-    )
 
     if (r() > 0.45) {
       const dur = Math.round(25 + r() * 70)
@@ -135,7 +124,6 @@ const SHORTCUTS = [
   ['sleep', '/sleep'],
   ['recovery', '/heart'],
   ['strain', '/move'],
-  ['activity', '/move'],
 ] as const
 
 /** Mirrors the real app's routing so navigation can be exercised end to end,
@@ -181,7 +169,7 @@ function Harness() {
         : route.path === '/longevity' ? <Longevity d={d} />
         : route.path === '/sleep' ? <Sleep d={d} />
         : route.path === '/heart' ? <Recovery d={d} />
-        : route.path === '/move' ? <><Strain d={d} /><div className="mt-6"><Activity d={d} /></div></>
+        : route.path === '/move' ? <Strain d={d} />
         : <p className="t-body">No route.</p>}
     </div>
   )

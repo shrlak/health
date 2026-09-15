@@ -61,7 +61,7 @@ export function Sleep({ d }: { d: Derived }) {
   ]
 
   if (!sessions.length) {
-    return <Empty title="No sleep data" body="Import an Apple Health or Whoop export to see sleep here." />
+    return <Empty title="No sleep data" body="Connect Whoop to see sleep here." />
   }
 
   // Deepest first, so the ramp reads as depth of sleep rather than as four
@@ -99,7 +99,7 @@ export function Sleep({ d }: { d: Derived }) {
       <ChartCard
         title="Sleep stages"
         accent="var(--series-7)"
-        hint="Each bar is one night, split by stage. Whoop and Apple Watch both report stages; Whoop wins where both have data."
+        hint="Each bar is one night, split by stage. Naps are excluded, so a day sleep after a night shift does not double-count."
         rows={rows}
         series={stageSeries}
       >

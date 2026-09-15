@@ -1,34 +1,44 @@
 @import "tailwindcss";
 
 /* ----------------------------------------------------------------- tokens
-   Apple's system palette and materials. Light values on :root; dark values
-   redefined under both the OS media query and an explicit [data-theme="dark"]
-   stamp, so the in-app toggle wins in either direction. */
+   Light values on :root; dark values redefined under both the OS media query
+   and an explicit [data-theme="dark"] stamp, so the in-app toggle wins in
+   either direction.
+
+   Dark is the design the app is drawn for -- an instrument panel rather than a
+   page, with the data lit against a near-black ground. Light is the same
+   layout cooled down rather than a second design, so the two do not diverge. */
 :root {
   color-scheme: light;
 
-  /* Grouped-background stack, as the Health app uses it: the scroll view sits
-     on the grouped background and cards sit on the elevated surface. */
-  --bg-grouped:   #f2f2f7;
+  --bg-grouped:   #eef1f7;
   --surface-1:    #ffffff;
-  --surface-2:    #f2f2f7;
-  --surface-3:    #e5e5ea;
+  --surface-2:    #f4f6fb;
+  --surface-3:    #e6eaf3;
 
-  --separator:    rgb(60 60 67 / 0.18);
-  --separator-opaque: #c6c6c8;
+  --separator:    rgb(38 52 84 / 0.16);
+  --separator-opaque: #cfd6e4;
 
-  --label:        #000000;
-  --label-2:      rgb(60 60 67 / 0.62);
-  --label-3:      rgb(60 60 67 / 0.42);
+  --label:        #0a1020;
+  --label-2:      rgb(24 36 64 / 0.64);
+  --label-3:      rgb(24 36 64 / 0.54);
 
-  --tint:         #006bd4;
-  --fill:         rgb(120 120 128 / 0.12);
-  --fill-2:       rgb(120 120 128 / 0.08);
+  --tint:         #0e7490;
+  --on-tint:      #ffffff;
+  --fill:         rgb(38 62 120 / 0.09);
+  --fill-2:       rgb(38 62 120 / 0.05);
 
-  /* Liquid Glass: a translucent layer that samples what is behind it. */
-  --glass:        rgb(255 255 255 / 0.72);
-  --glass-border: rgb(255 255 255 / 0.5);
-  --glass-shadow: 0 1px 3px rgb(0 0 0 / 0.06), 0 8px 24px rgb(0 0 0 / 0.06);
+  --edge-top:     rgb(255 255 255 / 0.9);
+  --edge-bottom:  rgb(38 62 120 / 0.06);
+  --glow:         rgb(14 116 144 / 0.16);
+  --wash-1:       rgb(99 102 241 / 0.10);
+  --wash-2:       rgb(14 165 233 / 0.10);
+  --grid-opacity: 0.5;
+
+  --glass:        rgb(255 255 255 / 0.74);
+  --glass-border: rgb(255 255 255 / 0.85);
+  --glass-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset,
+                  0 6px 26px rgb(20 35 70 / 0.10);
 
   --series-1: #cd0441;  /* heart */
   --series-2: #006bd4;  /* hearing */
@@ -44,7 +54,7 @@
   --serious:  #b4560f;
   --critical: #c5182b;
 
-  --grid: #e5e5ea;
+  --grid: rgb(38 62 120 / 0.12);
 
   /* iOS uses continuous ("squircle") corners; a large radius is the closest
      approximation available in CSS. */
@@ -57,82 +67,104 @@
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
 
-    --bg-grouped:   #000000;
-    --surface-1:    #1c1c1e;
-    --surface-2:    #2c2c2e;
-    --surface-3:    #3a3a3c;
+    --bg-grouped:   #05070f;
+    --surface-1:    #0c1019;
+    --surface-2:    #121826;
+    --surface-3:    #1b2334;
 
-    --separator:    rgb(84 84 88 / 0.6);
-    --separator-opaque: #38383a;
+    --separator:    rgb(125 165 255 / 0.16);
+    --separator-opaque: #1e2740;
 
-    --label:        #ffffff;
-    --label-2:      rgb(235 235 245 / 0.62);
-    --label-3:      rgb(235 235 245 / 0.4);
+    --label:        #eef3ff;
+    --label-2:      rgb(196 211 240 / 0.70);
+    --label-3:      rgb(176 196 232 / 0.46);
 
-    --tint:         #0282fe;
-    --fill:         rgb(120 120 128 / 0.24);
-    --fill-2:       rgb(120 120 128 / 0.16);
+    --tint:         #3ad8f5;
+    --on-tint:      #04060e;
+    --fill:         rgb(125 165 255 / 0.12);
+    --fill-2:       rgb(125 165 255 / 0.07);
 
-    --glass:        rgb(30 30 32 / 0.72);
-    --glass-border: rgb(255 255 255 / 0.1);
-    --glass-shadow: 0 1px 3px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.35);
+    /* The panel edge is a gradient rather than a flat line: brighter where a
+       light above would catch it, so a card reads as a lit surface. */
+    --edge-top:     rgb(160 205 255 / 0.30);
+    --edge-bottom:  rgb(125 165 255 / 0.06);
+    --glow:         rgb(58 216 245 / 0.30);
+    --wash-1:       rgb(76 40 190 / 0.30);
+    --wash-2:       rgb(10 110 160 / 0.26);
+    --grid-opacity: 1;
 
-    --series-1: #f70550;
-    --series-2: #0282fe;
-    --series-3: #bb7304;
-    --series-4: #0797ab;
-    --series-5: #bf26ff;
-    --series-6: #05a23b;
-    --series-7: #6f70fe;
-    --series-8: #9e8402;
+    --glass:        rgb(12 16 25 / 0.62);
+    --glass-border: rgb(150 195 255 / 0.14);
+    --glass-shadow: 0 1px 0 rgb(180 215 255 / 0.06) inset,
+                    0 10px 40px rgb(0 0 0 / 0.55);
 
-    --good:     #30d158;
+    --series-1: #ff2d6f;
+    --series-2: #38bdff;
+    --series-3: #ff9d2e;
+    --series-4: #22d3c5;
+    --series-5: #c56bff;
+    --series-6: #3ddc84;
+    --series-7: #8b8cff;
+    --series-8: #d4b436;
+
+    --good:     #3ddc84;
     --warning:  #ffd60a;
     --serious:  #ff9f0a;
-    --critical: #ff453a;
+    --critical: #ff4d6a;
 
-    --grid: #3a3a3c;
+    --grid: rgb(125 165 255 / 0.14);
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --bg-grouped:   #000000;
-  --surface-1:    #1c1c1e;
-  --surface-2:    #2c2c2e;
-  --surface-3:    #3a3a3c;
+  --bg-grouped:   #05070f;
+  --surface-1:    #0c1019;
+  --surface-2:    #121826;
+  --surface-3:    #1b2334;
 
-  --separator:    rgb(84 84 88 / 0.6);
-  --separator-opaque: #38383a;
+  --separator:    rgb(125 165 255 / 0.16);
+  --separator-opaque: #1e2740;
 
-  --label:        #ffffff;
-  --label-2:      rgb(235 235 245 / 0.62);
-  --label-3:      rgb(235 235 245 / 0.4);
+  --label:        #eef3ff;
+  --label-2:      rgb(196 211 240 / 0.70);
+  --label-3:      rgb(176 196 232 / 0.46);
 
-  --tint:         #0282fe;
-  --fill:         rgb(120 120 128 / 0.24);
-  --fill-2:       rgb(120 120 128 / 0.16);
+  --tint:         #3ad8f5;
+  --on-tint:      #04060e;
+  --fill:         rgb(125 165 255 / 0.12);
+  --fill-2:       rgb(125 165 255 / 0.07);
 
-  --glass:        rgb(30 30 32 / 0.72);
-  --glass-border: rgb(255 255 255 / 0.1);
-  --glass-shadow: 0 1px 3px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.35);
+  /* The panel edge is a gradient rather than a flat line: brighter where a
+     light above would catch it, so a card reads as a lit surface. */
+  --edge-top:     rgb(160 205 255 / 0.30);
+  --edge-bottom:  rgb(125 165 255 / 0.06);
+  --glow:         rgb(58 216 245 / 0.30);
+  --wash-1:       rgb(76 40 190 / 0.30);
+  --wash-2:       rgb(10 110 160 / 0.26);
+  --grid-opacity: 1;
 
-  --series-1: #f70550;
-  --series-2: #0282fe;
-  --series-3: #bb7304;
-  --series-4: #0797ab;
-  --series-5: #bf26ff;
-  --series-6: #05a23b;
-  --series-7: #6f70fe;
-  --series-8: #9e8402;
+  --glass:        rgb(12 16 25 / 0.62);
+  --glass-border: rgb(150 195 255 / 0.14);
+  --glass-shadow: 0 1px 0 rgb(180 215 255 / 0.06) inset,
+                  0 10px 40px rgb(0 0 0 / 0.55);
 
-  --good:     #30d158;
+  --series-1: #ff2d6f;
+  --series-2: #38bdff;
+  --series-3: #ff9d2e;
+  --series-4: #22d3c5;
+  --series-5: #c56bff;
+  --series-6: #3ddc84;
+  --series-7: #8b8cff;
+  --series-8: #d4b436;
+
+  --good:     #3ddc84;
   --warning:  #ffd60a;
   --serious:  #ff9f0a;
-  --critical: #ff453a;
+  --critical: #ff4d6a;
 
-  --grid: #3a3a3c;
+  --grid: rgb(125 165 255 / 0.14);
 }
 
 @theme inline {
@@ -167,6 +199,36 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* The ambient field the panels sit on: two coloured washes and a faint
+   measuring grid. Fixed rather than scrolled, so the light stays put and the
+   content moves across it. Purely decorative, and behind everything. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(120vw 70vh at 12% -10%, var(--wash-1), transparent 60%),
+    radial-gradient(100vw 60vh at 88% 0%, var(--wash-2), transparent 55%);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--grid-opacity);
+  background-image:
+    linear-gradient(to right, var(--grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+  background-size: 64px 64px;
+  /* Fades out down the page so it frames the top without fighting the charts. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 70%);
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 70%);
+}
+
 /* iOS type scale, the pieces of it this app actually uses. */
 .t-large-title { font-size: 34px; line-height: 41px; font-weight: 700; letter-spacing: 0.37px; }
 .t-title-1     { font-size: 28px; line-height: 34px; font-weight: 700; letter-spacing: 0.36px; }
@@ -196,6 +258,48 @@ body {
     backdrop-filter: saturate(180%) blur(20px);
     border: 0.5px solid var(--glass-border);
   }
+}
+
+/* A panel: a lit surface rather than a flat rectangle. The border is drawn as
+   a gradient in its own layer, because a plain 1px line reads as a box and the
+   whole point is that the edge catches light at the top and falls away. */
+.panel {
+  position: relative;
+  background:
+    linear-gradient(180deg, var(--fill-2), transparent 42%),
+    var(--surface-1);
+  box-shadow: var(--glass-shadow);
+  isolation: isolate;
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(180deg, var(--edge-top), var(--edge-bottom) 55%);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Reserved for the one or two figures a screen is actually about. Applied
+   widely it stops meaning anything, and on a light ground it reads as blur. */
+.lit {
+  text-shadow: 0 0 24px var(--glow);
+}
+
+/* Small tracked capitals, the way an instrument labels a readout. */
+.t-eyebrow {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .hairline { border-color: var(--separator); }
