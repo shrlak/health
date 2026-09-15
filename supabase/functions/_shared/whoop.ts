@@ -112,8 +112,35 @@ export async function fetchAll(
 
 // ------------------------------------------------------------------ mapping
 
+const maxOf = (a: number | null, b: number | null): number | null =>
+  a === null ? b : b === null ? a : Math.max(a, b)
+
+const sumOf = (a: number | null, b: number | null): number | null =>
+  a === null ? b : b === null ? a : a + b
+
+/**
+ * Whoop cycles, rolled up to one row per calendar day.
+ *
+ * A cycle begins when you wake, so a day holds more than one whenever you wake
+ * twice on the same date -- an overnight shift followed by daytime sleep does
+ * it routinely, and so does any nap long enough for Whoop to close the cycle.
+ * `cycles` is keyed on (user_id, day, source), so those have to be combined
+ * here: sending both to one upsert makes Postgres abort the whole statement
+ * with "ON CONFLICT DO UPDATE command cannot affect row a second time".
+ *
+ * Combining, field by field:
+ *   - strain is Whoop's 0-21 logarithmic scale, so it is not additive. The
+ *     larger figure is the honest one; adding would invent a day that never
+ *     happened, and averaging would erase a hard day's effort.
+ *   - kilojoules is energy, which genuinely accumulates, so it sums.
+ *   - max_hr is the higher of the two, by definition.
+ *   - avg_hr comes from whichever cycle covered more of the day rather than
+ *     being averaged, so it stays a figure Whoop actually reported. An
+ *     in-progress cycle has no end yet and loses that comparison.
+ */
 export function mapCycles(records: Rec[], userId: string) {
-  const rows: Rec[] = []
+  const byDay = new Map<string, Rec>()
+  const spans = new Map<string, number>()
   const cycleDays = new Map<string, string>()
 
   for (const r of records) {
@@ -123,22 +150,59 @@ export function mapCycles(records: Rec[], userId: string) {
     const id = String(obj(r).id ?? '')
     if (id) cycleDays.set(id, day)
 
-    const kj = num(r, 'score.kilojoule')
-    rows.push({
+    const startMs = Date.parse(str(r, 'start') ?? '')
+    const endMs = Date.parse(str(r, 'end') ?? '')
+    const span = Number.isFinite(startMs) && Number.isFinite(endMs) ? endMs - startMs : 0
+
+    const row: Rec = {
       user_id: userId,
       day,
       source: 'whoop_api',
       strain: round(num(r, 'score.strain')),
       avg_hr: round(num(r, 'score.average_heart_rate')),
       max_hr: round(num(r, 'score.max_heart_rate')),
-      kilojoules: round(kj),
+      kilojoules: round(num(r, 'score.kilojoule')),
+    }
+
+    const prev = byDay.get(day)
+    if (!prev) {
+      byDay.set(day, row)
+      spans.set(day, span)
+      continue
+    }
+
+    const longer = span > (spans.get(day) ?? 0)
+    byDay.set(day, {
+      ...prev,
+      strain: maxOf(prev.strain as number | null, row.strain as number | null),
+      max_hr: maxOf(prev.max_hr as number | null, row.max_hr as number | null),
+      kilojoules: round(sumOf(prev.kilojoules as number | null, row.kilojoules as number | null)),
+      avg_hr: longer ? (row.avg_hr ?? prev.avg_hr) : (prev.avg_hr ?? row.avg_hr),
     })
+    if (longer) spans.set(day, span)
   }
-  return { rows, cycleDays }
+
+  return { rows: [...byDay.values()], cycleDays }
 }
 
+const SCORES = ['recovery_pct', 'hrv_ms', 'resting_hr', 'spo2_pct', 'skin_temp_c']
+
+const filled = (row: Rec): number => SCORES.filter((k) => row[k] !== null).length
+
+/**
+ * Whoop recoveries, one row per calendar day.
+ *
+ * Recovery is scored per cycle, so a day with two cycles (see mapCycles) can
+ * carry two of them, and `recovery` is keyed on (user_id, day, source). Unlike
+ * strain these are point-in-time physiological readings, so they are not
+ * combined: blending two mornings' HRV would report a number the body never
+ * produced. One real reading is kept instead -- the most complete, and on a tie
+ * the later one, which for a shift worker is the score from the main sleep
+ * rather than from a nap earlier in the same date.
+ */
 export function mapRecovery(records: Rec[], userId: string, cycleDays: Map<string, string>) {
-  const rows: Rec[] = []
+  const byDay = new Map<string, Rec>()
+  const seenAt = new Map<string, number>()
   for (const r of records) {
     const cycleId = String(obj(r).cycle_id ?? '')
     const day = cycleDays.get(cycleId) ?? localDay(str(r, 'created_at'))
@@ -149,7 +213,7 @@ export function mapRecovery(records: Rec[], userId: string, cycleDays: Map<strin
     let hrv = num(r, 'score.hrv_rmssd_milli')
     if (hrv !== null && hrv > 0 && hrv < 1) hrv = hrv * 1000
 
-    rows.push({
+    const row: Rec = {
       user_id: userId,
       day,
       source: 'whoop_api',
@@ -159,9 +223,21 @@ export function mapRecovery(records: Rec[], userId: string, cycleDays: Map<strin
       spo2_pct: round(num(r, 'score.spo2_percentage')),
       skin_temp_c: round(num(r, 'score.skin_temp_celsius')),
       respiratory_rate: null,
-    })
+    }
+
+    const at = Date.parse(str(r, 'created_at') ?? '')
+    const createdAt = Number.isFinite(at) ? at : 0
+    const prev = byDay.get(day)
+    if (
+      !prev ||
+      filled(row) > filled(prev) ||
+      (filled(row) === filled(prev) && createdAt >= (seenAt.get(day) ?? 0))
+    ) {
+      byDay.set(day, row)
+      seenAt.set(day, createdAt)
+    }
   }
-  return rows
+  return [...byDay.values()]
 }
 
 export function mapSleep(records: Rec[], userId: string) {

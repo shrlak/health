@@ -12,7 +12,7 @@
 import {
   mapCycles, mapRecovery, mapSleep, mapWorkouts,
 } from '../supabase/functions/_shared/whoop'
-import { localDay, round } from '../supabase/functions/_shared/common'
+import { dedupeBy, localDay, round } from '../supabase/functions/_shared/common'
 
 let failures = 0
 let checks = 0
@@ -310,10 +310,126 @@ function testDrift() {
   check('rejects a non-finite value', round(Number.NaN) === null)
 }
 
+// --------------------------------------------------- more than one per day
+
+/**
+ * A Whoop cycle starts when you wake, so waking twice on one date produces two
+ * cycles for it -- routine on an overnight shift, where the main sleep happens
+ * during the day. `cycles` and `recovery` are keyed on the day, and Postgres
+ * aborts an upsert that would touch one row twice, so a live sync failed
+ * outright with "ON CONFLICT DO UPDATE command cannot affect row a second
+ * time" until these were collapsed here.
+ */
+
+// 04:00 local on the 1st, closed twelve hours later.
+const NIGHT_CYCLE = {
+  id: 93845,
+  start: '2026-03-01T09:00:00.000Z',
+  end: '2026-03-01T21:00:00.000Z',
+  timezone_offset: '-05:00',
+  score: { strain: 13.2411, kilojoule: 8288.297, average_heart_rate: 78, max_heart_rate: 172 },
+}
+
+// 17:00 local the same date, still running.
+const DAY_CYCLE = {
+  id: 93846,
+  start: '2026-03-01T22:00:00.000Z',
+  end: null,
+  timezone_offset: '-05:00',
+  score: { strain: 4.5, kilojoule: 1200, average_heart_rate: 60, max_heart_rate: 140 },
+}
+
+function testTwoCyclesOneDay() {
+  console.log('\nTwo cycles on one date')
+
+  const { rows, cycleDays } = mapCycles([NIGHT_CYCLE, DAY_CYCLE], USER)
+  check('collapses them to one row', rows.length === 1, rows.length)
+
+  const c = rows[0]
+  check('keeps the single date', c.day === '2026-03-01', c.day)
+  check('takes the higher strain, not the sum', near(c.strain, 13.24), c.strain)
+  check('takes the higher max heart rate', c.max_hr === 172, c.max_hr)
+  check('adds the energy', near(c.kilojoules, 9488.3, 0.05), c.kilojoules)
+  check('takes average HR from the longer cycle', c.avg_hr === 78, c.avg_hr)
+  check('still indexes both cycles',
+    cycleDays.get('93845') === '2026-03-01' && cycleDays.get('93846') === '2026-03-01',
+    [...cycleDays])
+
+  // Whoop's ordering must not change the answer.
+  const reversed = mapCycles([DAY_CYCLE, NIGHT_CYCLE], USER).rows[0]
+  check('is independent of record order',
+    reversed.strain === c.strain && reversed.avg_hr === c.avg_hr &&
+      reversed.kilojoules === c.kilojoules,
+    reversed)
+
+  // Distinct days must still come through separately.
+  const twoDays = mapCycles(
+    [NIGHT_CYCLE, { ...NIGHT_CYCLE, id: 93847, start: '2026-03-02T09:00:00.000Z' }],
+    USER,
+  ).rows
+  check('does not collapse separate days', twoDays.length === 2, twoDays.length)
+}
+
+function testTwoRecoveriesOneDay() {
+  console.log('\nTwo recoveries on one date')
+  const { cycleDays } = mapCycles([NIGHT_CYCLE, DAY_CYCLE], USER)
+
+  const nap = {
+    cycle_id: 93845,
+    created_at: '2026-03-01T13:00:00.000Z',
+    score: {
+      recovery_score: 31, resting_heart_rate: 70, hrv_rmssd_milli: 22.0,
+      spo2_percentage: 95.1, skin_temp_celsius: 33.4,
+    },
+  }
+  const main = {
+    cycle_id: 93846,
+    created_at: '2026-03-01T21:30:00.000Z',
+    score: {
+      recovery_score: 68, resting_heart_rate: 58, hrv_rmssd_milli: 44.5,
+      spo2_percentage: 96.2, skin_temp_celsius: 33.8,
+    },
+  }
+
+  const rows = mapRecovery([nap, main], USER, cycleDays)
+  check('collapses them to one row', rows.length === 1, rows.length)
+  check('keeps the later reading', rows[0].recovery_pct === 68, rows[0].recovery_pct)
+  check('does not average the HRV', near(rows[0].hrv_ms, 44.5), rows[0].hrv_ms)
+  check('is independent of record order',
+    mapRecovery([main, nap], USER, cycleDays)[0].recovery_pct === 68)
+
+  // A fuller reading beats a more recent but sparser one, so a partial score
+  // arriving late cannot blank out a complete morning.
+  const sparseLater = { cycle_id: 93846, created_at: '2026-03-01T23:00:00.000Z', score: {} }
+  const kept = mapRecovery([main, sparseLater], USER, cycleDays)[0]
+  check('prefers the more complete reading', kept.recovery_pct === 68, kept.recovery_pct)
+}
+
+function testDedupe() {
+  console.log('\nUpsert backstop')
+
+  const rows = [
+    { user_id: USER, day: '2026-03-01', source: 'whoop_api', strain: 1 },
+    { user_id: USER, day: '2026-03-01', source: 'whoop_api', strain: 2 },
+    { user_id: USER, day: '2026-03-02', source: 'whoop_api', strain: 3 },
+  ]
+  const unique = dedupeBy(rows, 'user_id,day,source')
+  check('drops a duplicate key', unique.length === 2, unique.length)
+  check('keeps the last of the pair',
+    unique.find((r) => r.day === '2026-03-01')?.strain === 2, unique)
+  check('leaves a clean batch untouched',
+    dedupeBy(rows.slice(1), 'user_id,day,source').length === 2)
+  check('tolerates spaces in the key list',
+    dedupeBy(rows, 'user_id, day, source').length === 2)
+}
+
 function main() {
   testLocalDay()
   testCycles()
   testRecovery()
+  testTwoCyclesOneDay()
+  testTwoRecoveriesOneDay()
+  testDedupe()
   testSleep()
   testWorkouts()
   testDrift()
