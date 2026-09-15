@@ -23,6 +23,32 @@ struct Summary: Decodable {
     let updatedAt: String
 }
 
+/// How a metric's latest value compares to the rest of its trend window,
+/// mirroring the dashboard's "vs 28-day average" callouts at the widget's
+/// much shorter horizon.
+struct TrendDelta {
+    enum Direction { case up, down, flat }
+    let direction: Direction
+    let magnitudeText: String
+
+    var symbol: String {
+        switch direction {
+        case .up: return "↑"
+        case .down: return "↓"
+        case .flat: return "→"
+        }
+    }
+}
+
+private func trendDelta(_ points: [TrendPoint], decimals: Int) -> TrendDelta? {
+    guard points.count > 1, let latest = points.last?.value else { return nil }
+    let prior = points.dropLast().map(\.value)
+    let mean = prior.reduce(0, +) / Double(prior.count)
+    let diff = latest - mean
+    let direction: TrendDelta.Direction = abs(diff) < 0.05 ? .flat : (diff > 0 ? .up : .down)
+    return TrendDelta(direction: direction, magnitudeText: String(format: "%.\(decimals)f", abs(diff)))
+}
+
 enum SummaryError: LocalizedError {
     case notConfigured
     case badURL
@@ -89,6 +115,12 @@ extension Summary {
         if recovery >= 34 { return Color(red: 1.00, green: 0.73, blue: 0.09) }
         return Color(red: 0.98, green: 0.31, blue: 0.35)
     }
+
+    /// Latest recovery vs. the mean of the rest of `recoveryTrend`.
+    var recoveryDelta: TrendDelta? { trendDelta(recoveryTrend, decimals: 0) }
+
+    /// Latest strain vs. the mean of the rest of `strainTrend`.
+    var strainDelta: TrendDelta? { trendDelta(strainTrend, decimals: 1) }
 
     /// "Mon 14 Sep", or nothing if no day has been scored yet.
     var dayText: String {

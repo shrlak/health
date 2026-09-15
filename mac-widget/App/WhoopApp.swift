@@ -80,10 +80,10 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 9) {
                     Text(summary.dayText).font(.subheadline).foregroundStyle(.white.opacity(0.7))
                     Text(summary.sleepDetail).font(.caption).foregroundStyle(.white.opacity(0.55))
-                    Stat(label: "STRAIN", value: summary.strainText)
-                    Stat(label: "SLEEP", value: summary.sleepText)
-                    Stat(label: "HRV", value: summary.hrvText)
-                    Stat(label: "RESTING HR", value: summary.restingHrText)
+                    Stat(label: "STRAIN", value: summary.strainText, color: MetricPalette.strain, delta: summary.strainDelta)
+                    Stat(label: "SLEEP", value: summary.sleepText, color: MetricPalette.sleep)
+                    Stat(label: "HRV", value: summary.hrvText, color: MetricPalette.hrv)
+                    Stat(label: "RESTING HR", value: summary.restingHrText, color: MetricPalette.restingHR)
                 }
             }
             .padding(14)

@@ -19,6 +19,17 @@ enum GlassPalette {
     static let backgroundDeep = Color(red: 0.03, green: 0.04, blue: 0.08)
 }
 
+/// Per-metric accents, lifted from the dashboard's dark-mode series palette
+/// (`src/index.css`) so a stat means the same color here as it does on the
+/// Insights tab. The recovery ring keeps its own red/amber/green health bands
+/// instead of a slot here, since that color already carries meaning.
+enum MetricPalette {
+    static let strain = Color(red: 1.00, green: 0.62, blue: 0.18)     // series-3 #ff9d2e
+    static let sleep = Color(red: 0.55, green: 0.55, blue: 1.00)      // series-7 #8b8cff
+    static let hrv = Color(red: 1.00, green: 0.18, blue: 0.44)        // series-1 #ff2d6f
+    static let restingHR = Color(red: 0.13, green: 0.83, blue: 0.77)  // series-4 #22d3c5
+}
+
 /// Always-dark backdrop for the widget and the app window. This trades the
 /// widget's adaptive system material for a deliberate look, since a
 /// washed-out light-mode version of the same glow would not read as
@@ -165,18 +176,33 @@ struct Sparkline: View {
 struct Stat: View {
     let label: String
     let value: String
+    var color: Color = GlassPalette.accentStart
+    var delta: TrendDelta? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(.system(size: 9, weight: .medium))
-                .tracking(1.1)
-                .foregroundStyle(GlassPalette.accentStart.opacity(0.85))
-            Text(value)
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .foregroundStyle(.white)
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 5, height: 5)
+                    .shadow(color: color.opacity(0.9), radius: 2.5)
+                Text(label)
+                    .font(.system(size: 9, weight: .medium))
+                    .tracking(1.1)
+                    .foregroundStyle(color.opacity(0.9))
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(value)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .foregroundStyle(.white)
+                if let delta, delta.direction != .flat {
+                    Text("\(delta.symbol)\(delta.magnitudeText)")
+                        .font(.system(size: 8, weight: .semibold, design: .rounded))
+                        .foregroundStyle(color.opacity(0.85))
+                }
+            }
         }
     }
 }

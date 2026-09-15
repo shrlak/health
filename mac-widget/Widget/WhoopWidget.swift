@@ -60,8 +60,8 @@ struct SmallView: View {
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                Stat(label: "STRAIN", value: summary.strainText)
-                Stat(label: "SLEEP", value: summary.sleepText)
+                Stat(label: "STRAIN", value: summary.strainText, color: MetricPalette.strain)
+                Stat(label: "SLEEP", value: summary.sleepText, color: MetricPalette.sleep)
             }
             Spacer(minLength: 0)
         }
@@ -80,10 +80,17 @@ struct MediumView: View {
                     label: summary.recoveryText
                 )
                 .frame(width: 74, height: 74)
-                Text("RECOVERY")
-                    .font(.system(size: 9, weight: .medium))
-                    .tracking(1.1)
-                    .foregroundStyle(GlassPalette.accentStart.opacity(0.85))
+                HStack(spacing: 3) {
+                    Text("RECOVERY")
+                        .font(.system(size: 9, weight: .medium))
+                        .tracking(1.1)
+                        .foregroundStyle(summary.recoveryColor.opacity(0.9))
+                    if let delta = summary.recoveryDelta, delta.direction != .flat {
+                        Text("\(delta.symbol)\(delta.magnitudeText)")
+                            .font(.system(size: 8, weight: .semibold, design: .rounded))
+                            .foregroundStyle(summary.recoveryColor.opacity(0.85))
+                    }
+                }
             }
 
             VStack(alignment: .leading, spacing: 7) {
@@ -94,20 +101,29 @@ struct MediumView: View {
                 GlassCard(cornerRadius: 10) {
                     VStack(alignment: .leading, spacing: 7) {
                         HStack(spacing: 16) {
-                            Stat(label: "STRAIN", value: summary.strainText)
-                            Stat(label: "SLEEP", value: summary.sleepText)
+                            Stat(label: "STRAIN", value: summary.strainText, color: MetricPalette.strain, delta: summary.strainDelta)
+                            Stat(label: "SLEEP", value: summary.sleepText, color: MetricPalette.sleep)
                         }
                         HStack(spacing: 16) {
-                            Stat(label: "HRV", value: summary.hrvText)
-                            Stat(label: "RESTING HR", value: summary.restingHrText)
+                            Stat(label: "HRV", value: summary.hrvText, color: MetricPalette.hrv)
+                            Stat(label: "RESTING HR", value: summary.restingHrText, color: MetricPalette.restingHR)
                         }
                     }
                     .padding(8)
                 }
 
-                if summary.recoveryTrend.count > 1 {
-                    Sparkline(points: summary.recoveryTrend, color: summary.recoveryColor)
-                        .frame(height: 20)
+                // Two real trend graphs instead of one: recovery keeps its
+                // health-band color, strain gets its own metric accent.
+                if summary.recoveryTrend.count > 1 || summary.strainTrend.count > 1 {
+                    HStack(spacing: 8) {
+                        if summary.recoveryTrend.count > 1 {
+                            Sparkline(points: summary.recoveryTrend, color: summary.recoveryColor)
+                        }
+                        if summary.strainTrend.count > 1 {
+                            Sparkline(points: summary.strainTrend, color: MetricPalette.strain)
+                        }
+                    }
+                    .frame(height: 20)
                 }
                 Spacer(minLength: 0)
             }
