@@ -63,8 +63,10 @@ struct SmallView: View {
             // the second one past the bottom edge, where it was clipped away
             // rather than shrunk.
             HStack(alignment: .top, spacing: 8) {
-                Stat(label: "STRAIN", value: summary.strainText, color: MetricPalette.strain)
-                Stat(label: "SLEEP", value: summary.sleepText, color: MetricPalette.sleep)
+                Stat(label: "STRAIN", value: summary.strainText,
+                     color: MetricPalette.strain, fillsWidth: true)
+                Stat(label: "SLEEP", value: summary.sleepText,
+                     color: MetricPalette.sleep, fillsWidth: true)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -119,23 +121,31 @@ struct MediumView: View {
 
                 GlassCard(cornerRadius: 10) {
                     VStack(alignment: .leading, spacing: 5) {
-                        HStack(spacing: 16) {
+                        HStack(spacing: 12) {
                             Stat(
                                 label: "STRAIN", value: summary.strainText,
                                 color: MetricPalette.strain, delta: summary.strainDelta,
-                                secondary: summary.calories != nil ? summary.caloriesText : nil
+                                secondary: summary.calories != nil ? summary.caloriesText : nil,
+                                fillsWidth: true
                             )
                             Stat(
                                 label: "SLEEP", value: summary.sleepText,
-                                color: MetricPalette.sleep, secondary: summary.sleepSecondaryText
+                                color: MetricPalette.sleep, secondary: summary.sleepSecondaryText,
+                                fillsWidth: true
                             )
                         }
-                        HStack(spacing: 16) {
-                            Stat(label: "HRV", value: summary.hrvText, color: MetricPalette.hrv)
-                            Stat(label: "RESTING HR", value: summary.restingHrText, color: MetricPalette.restingHR)
+                        HStack(spacing: 12) {
+                            Stat(label: "HRV", value: summary.hrvText,
+                                 color: MetricPalette.hrv, fillsWidth: true)
+                            Stat(label: "RESTING HR", value: summary.restingHrText,
+                                 color: MetricPalette.restingHR, fillsWidth: true)
                         }
                     }
                     .padding(6)
+                    // The tile spans its column, so its right edge lines up
+                    // with the trend lines underneath instead of stopping
+                    // wherever the longest value happened to end.
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 // Recovery, strain and HRV each get their own trend line:
