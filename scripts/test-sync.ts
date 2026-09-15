@@ -13,6 +13,7 @@ import {
   mapCycles, mapRecovery, mapSleep, mapWorkouts,
 } from '../supabase/functions/_shared/whoop'
 import { dedupeBy, localDay, round } from '../supabase/functions/_shared/common'
+import { summarise } from '../supabase/functions/_shared/summary'
 
 let failures = 0
 let checks = 0
@@ -423,6 +424,69 @@ function testDedupe() {
     dedupeBy(rows, 'user_id, day, source').length === 2)
 }
 
+// ------------------------------------------------------------ widget summary
+
+function testSummary() {
+  console.log('\nWidget summary')
+
+  const cycles = [
+    { day: '2026-03-01', strain: 13.24, avg_hr: 78, max_hr: 172 },
+    { day: '2026-03-02', strain: 8.1, avg_hr: 64, max_hr: 141 },
+  ]
+  const recovery = [
+    { day: '2026-03-01', recovery_pct: 44, hrv_ms: 31.8, resting_hr: 64 },
+    { day: '2026-03-02', recovery_pct: 71, hrv_ms: 52.4, resting_hr: 55 },
+  ]
+  const sleep = [
+    { day: '2026-03-02', asleep_min: 447, need_min: 512, performance_pct: 87 },
+  ]
+
+  const s = summarise(cycles, recovery, sleep, new Date('2026-03-02T12:00:00Z'))
+  check('reports the newest day', s.day === '2026-03-02', s.day)
+  check('reads that day\'s recovery', s.recovery === 71, s.recovery)
+  check('reads that day\'s strain', s.strain === 8.1, s.strain)
+  check('reads that day\'s sleep', s.sleepMin === 447, s.sleepMin)
+  check('stamps the time', s.updatedAt === '2026-03-02T12:00:00.000Z', s.updatedAt)
+
+  check('trends run oldest to newest',
+    s.recoveryTrend.map((p) => p.value).join(',') === '44,71', s.recoveryTrend)
+  check('trends carry their dates',
+    s.recoveryTrend[0].day === '2026-03-01', s.recoveryTrend)
+  check('strain trends separately',
+    s.strainTrend.map((p) => p.value).join(',') === '13.24,8.1', s.strainTrend)
+
+  // Whoop scores a night on waking, so the newest day often has a recovery
+  // before it has any strain. The widget must show what exists, not go blank.
+  const partial = summarise(
+    [{ day: '2026-03-01', strain: 13.24, avg_hr: 78, max_hr: 172 }],
+    [{ day: '2026-03-02', recovery_pct: 71, hrv_ms: 52.4, resting_hr: 55 }],
+    [],
+  )
+  check('uses the newest day across all three tables', partial.day === '2026-03-02', partial.day)
+  check('leaves a missing strain null', partial.strain === null, partial.strain)
+  check('still reports the recovery', partial.recovery === 71, partial.recovery)
+
+  // Out-of-order rows must not reorder the sparkline.
+  const shuffled = summarise(
+    [cycles[1], cycles[0]], [recovery[1], recovery[0]], sleep,
+    new Date('2026-03-02T12:00:00Z'),
+  )
+  check('sorts trends regardless of row order',
+    shuffled.strainTrend.map((p) => p.day).join(',') === '2026-03-01,2026-03-02',
+    shuffled.strainTrend)
+
+  // A gap in the readings must drop out of the trend rather than plot as zero.
+  const gapped = summarise(
+    cycles, [recovery[0], { day: '2026-03-02', recovery_pct: null, hrv_ms: null, resting_hr: null }],
+    sleep, new Date('2026-03-02T12:00:00Z'),
+  )
+  check('omits a missing reading from the trend', gapped.recoveryTrend.length === 1, gapped.recoveryTrend)
+
+  const empty = summarise([], [], [])
+  check('survives an account with no data', empty.day === null, empty.day)
+  check('returns empty trends, not null', empty.recoveryTrend.length === 0, empty.recoveryTrend)
+}
+
 function main() {
   testLocalDay()
   testCycles()
@@ -430,6 +494,7 @@ function main() {
   testTwoCyclesOneDay()
   testTwoRecoveriesOneDay()
   testDedupe()
+  testSummary()
   testSleep()
   testWorkouts()
   testDrift()

@@ -5,6 +5,9 @@ const base = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`
 /** Public endpoint an iPhone posts Apple Health data to. */
 export const INGEST_URL = `${base}/health-ingest`
 
+/** Read-only endpoint the Mac widget polls. */
+export const WIDGET_URL = `${base}/whoop-widget`
+
 /**
  * Call an Edge Function as the signed-in user.
  *
