@@ -16,32 +16,69 @@ downloading.
 
 ### 1. Xcode
 
-Install **Xcode** from the Mac App Store. It is about 7 GB, so start it first
-and read on while it downloads. Open it once when it finishes: it asks you to
-accept the licence and then installs additional components. Let it.
-
-### 2. XcodeGen
+Xcode has no supported command-line install — it comes from the App Store, and
+it is about 7 GB, so start it before anything else:
 
 ```sh
+open "macappstore://apps.apple.com/app/id497799835"
+```
+
+When it has finished downloading, open it once so it can install its extra
+components, then point the command-line tools at it and accept the licence.
+Both of these are easy to miss and both break the build if skipped:
+
+```sh
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -license accept
+xcodebuild -version          # should print Xcode 15 or later
+```
+
+### 2. Homebrew and XcodeGen
+
+XcodeGen turns `project.yml` into an `.xcodeproj`. A generated `.xcodeproj` is
+a large file that conflicts on every edit, which is why it is built on your
+machine rather than committed.
+
+```sh
+if ! command -v brew >/dev/null 2>&1; then
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  # Homebrew is not on PATH straight after installing. Apple Silicon puts it in
+  # /opt/homebrew, Intel in /usr/local.
+  BREW=/opt/homebrew/bin/brew
+  [ -x "$BREW" ] || BREW=/usr/local/bin/brew
+  echo "eval \"\$($BREW shellenv)\"" >> ~/.zprofile
+  eval "$($BREW shellenv)"
+fi
+
 brew install xcodegen
 ```
 
-If you do not have Homebrew, install it from [brew.sh](https://brew.sh) first.
+### 3. The repository
 
-XcodeGen turns `project.yml` into an `.xcodeproj`. A generated `.xcodeproj` is
-a large file that conflicts on every edit, which is why it is built here rather
-than committed.
+If you have never cloned it on this Mac:
 
-### 3. The token
+```sh
+mkdir -p ~/Developer
+cd ~/Developer
+git clone https://github.com/shrlak/health.git
+cd health/mac-widget
+```
+
+If you have:
+
+```sh
+cd ~/Developer/health
+git pull
+cd mac-widget
+```
+
+### 4. The token, then generate
 
 In the dashboard, go to **Connections → Mac widget → Create a token** and copy
 what it shows you. It is shown once and stored only as a hash, so if you lose
 it you make another.
 
-### 4. Generate and open
-
 ```sh
-cd mac-widget
 ./setup.sh
 ```
 
