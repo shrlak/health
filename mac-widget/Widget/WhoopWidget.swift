@@ -82,21 +82,27 @@ struct MediumView: View {
                 .frame(width: 74, height: 74)
                 Text("RECOVERY")
                     .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .tracking(1.1)
+                    .foregroundStyle(GlassPalette.accentStart.opacity(0.85))
             }
 
             VStack(alignment: .leading, spacing: 7) {
                 Text(summary.dayText)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.7))
 
-                HStack(spacing: 16) {
-                    Stat(label: "STRAIN", value: summary.strainText)
-                    Stat(label: "SLEEP", value: summary.sleepText)
-                }
-                HStack(spacing: 16) {
-                    Stat(label: "HRV", value: summary.hrvText)
-                    Stat(label: "RESTING HR", value: summary.restingHrText)
+                GlassCard(cornerRadius: 10) {
+                    VStack(alignment: .leading, spacing: 7) {
+                        HStack(spacing: 16) {
+                            Stat(label: "STRAIN", value: summary.strainText)
+                            Stat(label: "SLEEP", value: summary.sleepText)
+                        }
+                        HStack(spacing: 16) {
+                            Stat(label: "HRV", value: summary.hrvText)
+                            Stat(label: "RESTING HR", value: summary.restingHrText)
+                        }
+                    }
+                    .padding(8)
                 }
 
                 if summary.recoveryTrend.count > 1 {
@@ -115,7 +121,7 @@ struct WhoopWidgetView: View {
 
     var body: some View {
         content
-            .containerBackground(.fill.tertiary, for: .widget)
+            .containerBackground(for: .widget) { GlassBackground() }
     }
 
     @ViewBuilder

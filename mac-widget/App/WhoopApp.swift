@@ -26,6 +26,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Whoop")
                 .font(.system(size: 22, weight: .bold, design: .rounded))
+                .foregroundStyle(GlassPalette.accent)
 
             if loading {
                 ProgressView().frame(maxWidth: .infinity)
@@ -33,18 +34,21 @@ struct ContentView: View {
                 loaded(summary)
             } else {
                 Label(failure ?? "Nothing synced yet", systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.7))
             }
 
-            Divider()
+            Rectangle()
+                .fill(Color.white.opacity(0.12))
+                .frame(height: 1)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Adding the widget")
                     .font(.headline)
+                    .foregroundStyle(.white.opacity(0.85))
                 Text("Right-click the desktop, choose Edit Widgets, search for Whoop, "
                      + "and drag the size you want into place.")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.55))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -56,28 +60,33 @@ struct ContentView: View {
             }
         }
         .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(GlassBackground())
         .task { await load() }
     }
 
     @ViewBuilder
     private func loaded(_ summary: Summary) -> some View {
-        HStack(spacing: 18) {
-            RecoveryRing(
-                fraction: summary.recoveryFraction,
-                color: summary.recoveryColor,
-                label: summary.recoveryText,
-                lineWidth: 11
-            )
-            .frame(width: 92, height: 92)
+        GlassCard(cornerRadius: 16) {
+            HStack(spacing: 18) {
+                RecoveryRing(
+                    fraction: summary.recoveryFraction,
+                    color: summary.recoveryColor,
+                    label: summary.recoveryText,
+                    lineWidth: 11
+                )
+                .frame(width: 92, height: 92)
 
-            VStack(alignment: .leading, spacing: 9) {
-                Text(summary.dayText).font(.subheadline).foregroundStyle(.secondary)
-                Text(summary.sleepDetail).font(.caption).foregroundStyle(.secondary)
-                Stat(label: "STRAIN", value: summary.strainText)
-                Stat(label: "SLEEP", value: summary.sleepText)
-                Stat(label: "HRV", value: summary.hrvText)
-                Stat(label: "RESTING HR", value: summary.restingHrText)
+                VStack(alignment: .leading, spacing: 9) {
+                    Text(summary.dayText).font(.subheadline).foregroundStyle(.white.opacity(0.7))
+                    Text(summary.sleepDetail).font(.caption).foregroundStyle(.white.opacity(0.55))
+                    Stat(label: "STRAIN", value: summary.strainText)
+                    Stat(label: "SLEEP", value: summary.sleepText)
+                    Stat(label: "HRV", value: summary.hrvText)
+                    Stat(label: "RESTING HR", value: summary.restingHrText)
+                }
             }
+            .padding(14)
         }
     }
 
