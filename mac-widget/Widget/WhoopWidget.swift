@@ -48,28 +48,34 @@ struct SmallView: View {
     let summary: Summary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                RecoveryRing(
-                    fraction: summary.recoveryFraction,
-                    color: summary.recoveryColor,
-                    label: summary.recoveryText
-                )
-                .frame(width: 62, height: 62)
-                Spacer(minLength: 0)
-            }
+        VStack(spacing: 6) {
+            RecoveryRing(
+                fraction: summary.recoveryFraction,
+                color: summary.recoveryColor,
+                label: summary.recoveryText
+            )
+            .frame(width: 62, height: 62)
 
-            VStack(alignment: .leading, spacing: 3) {
+            Spacer(minLength: 2)
+
+            // Side by side rather than stacked: the small size runs out of
+            // height long before it runs out of width, and stacked rows put
+            // the second one past the bottom edge, where it was clipped away
+            // rather than shrunk.
+            HStack(alignment: .top, spacing: 8) {
                 Stat(label: "STRAIN", value: summary.strainText, color: MetricPalette.strain)
                 Stat(label: "SLEEP", value: summary.sleepText, color: MetricPalette.sleep)
             }
-            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
 struct MediumView: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
     let summary: Summary
+
+    private var mono: Bool { renderingMode.isMonochrome }
 
     var body: some View {
         HStack(spacing: 14) {
@@ -82,13 +88,15 @@ struct MediumView: View {
                 .frame(width: 74, height: 74)
                 HStack(spacing: 3) {
                     Text("RECOVERY")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.system(size: 9, weight: mono ? .semibold : .medium))
                         .tracking(1.1)
-                        .foregroundStyle(summary.recoveryColor.opacity(0.9))
+                        .foregroundStyle(mono ? Color.white.opacity(0.75)
+                                              : summary.recoveryColor.opacity(0.9))
                     if let delta = summary.recoveryDelta, delta.direction != .flat {
                         Text("\(delta.symbol)\(delta.magnitudeText)")
                             .font(.system(size: 8, weight: .semibold, design: .rounded))
-                            .foregroundStyle(summary.recoveryColor.opacity(0.85))
+                            .foregroundStyle(mono ? Color.white.opacity(0.7)
+                                                  : summary.recoveryColor.opacity(0.85))
                     }
                 }
                 .lineLimit(1)
@@ -103,13 +111,14 @@ struct MediumView: View {
             }
             .frame(width: 84)
 
-            VStack(alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text(summary.dayText)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(.white.opacity(mono ? 0.8 : 0.7))
+                    .lineLimit(1)
 
                 GlassCard(cornerRadius: 10) {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 5) {
                         HStack(spacing: 16) {
                             Stat(
                                 label: "STRAIN", value: summary.strainText,
@@ -126,7 +135,7 @@ struct MediumView: View {
                             Stat(label: "RESTING HR", value: summary.restingHrText, color: MetricPalette.restingHR)
                         }
                     }
-                    .padding(8)
+                    .padding(6)
                 }
 
                 // Recovery, strain and HRV each get their own trend line:
@@ -144,11 +153,12 @@ struct MediumView: View {
                             Sparkline(points: summary.hrvTrendPoints, color: MetricPalette.hrv)
                         }
                     }
-                    .frame(height: 18)
+                    .frame(height: 16)
                 }
-                Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -158,6 +168,13 @@ struct WhoopWidgetView: View {
 
     var body: some View {
         content
+            // Own the inset rather than taking the system's. macOS reserves
+            // 16pt per edge, sized for a phone's home screen, which left the
+            // medium column a dozen points short of fitting — and a widget
+            // clips what does not fit instead of shrinking it.
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .containerBackground(for: .widget) { GlassBackground() }
     }
 
@@ -187,6 +204,8 @@ struct WhoopWidget: Widget {
         .configurationDisplayName("Whoop")
         .description("Recovery, strain and sleep from your Whoop.")
         .supportedFamilies([.systemSmall, .systemMedium])
+        // The layouts pad themselves; see WhoopWidgetView.
+        .contentMarginsDisabled()
     }
 }
 

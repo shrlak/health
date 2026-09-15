@@ -139,6 +139,8 @@ onto the desktop or into Notification Center.
 | Widget is blank or stuck on placeholder text | Open the Whoop app. It fetches the same endpoint the same way and has room to say what failed. |
 | **Whoop** is not in the Edit Widgets list | The app has not been run from a stable location. Do step 7. |
 | The number looks stale | WidgetKit budgets refreshes. Open the app and press **Refresh**, which reloads every timeline. |
+| The stats are a blank slab, or numbers are missing, until you click the desktop | macOS renders desktop widgets without colour while another window is in front. See [When the desktop is not in front](#when-the-desktop-is-not-in-front). |
+| A rebuild changes nothing on the desktop | Xcode builds into DerivedData, but the widget is served from `/Applications/Whoop.app`. Redo step 7 so the copy there is the new one, then check `pluginkit -mAvvv -p com.apple.widgetkit-extension \| grep -A3 shrlak` shows a fresh `Timestamp`. |
 | A wall of `com.apple.linkd.autoShortcut` errors in the console | Not a failure, and it only appears once the app has launched. Every sandboxed app tries to register with the Shortcuts service at startup and the sandbox denies it; this one uses no App Intents, so nothing is lost. Filter the Xcode console by `Whoop` to hide it. |
 
 ## Where the token lives
@@ -171,6 +173,32 @@ small                          medium
 │ SLEEP   9h32 │               │                                │
 └──────────────┘               └────────────────────────────────┘
 ```
+
+## When the desktop is not in front
+
+macOS draws a desktop widget in colour only while the desktop itself is the
+front-most thing. Click any window and every desktop widget switches to
+WidgetKit's `.vibrant` rendering: hue is discarded and what is left is
+flattened into a wallpaper-tinted material, each pixel's opacity taken from
+its luminance. Click the wallpaper and the colour comes back.
+
+Nothing in the glass survives that on its own, and one piece of it actively
+breaks. `Material` has no vibrant representation, so the stat tile's
+`.ultraThinMaterial` was drawn as a solid at full brightness — an opaque slab
+covering the numbers inside it. Blurs, shadows and glows flatten the same way,
+into haze rather than depth, and the per-metric accents are mid-tones, which is
+exactly what the mask has least room for.
+
+So every view asks `\.widgetRenderingMode` which mode it is in. In colour it
+draws the glass as designed; in the monochrome modes it draws flat — no
+material, no blur, no glow, white ink, hierarchy by opacity. The fade itself is
+the system's and a widget cannot opt out of it, but it can stay readable inside
+it.
+
+If you would rather it never faded, that is a system setting rather than
+anything here: **System Settings → Desktop & Dock → Widgets**, where *Widget
+style* set to **Full-color** keeps the colour whether or not the desktop is in
+front. **Automatic** is the setting that fades it.
 
 ## If it is blank
 
