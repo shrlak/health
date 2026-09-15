@@ -273,6 +273,13 @@ struct Stat: View {
     var color: Color = GlassPalette.accentStart
     var delta: TrendDelta? = nil
     var secondary: String? = nil
+    /// Opt in to claiming an equal share of the row. Sized to its own text, a
+    /// row of these is only as wide as the longest value in it, so the tile
+    /// around them stopped short of its column while the trend lines below —
+    /// greedy, being `GeometryReader`-based — ran the full width. The tile
+    /// ending early and the lines not is what read as the layout being
+    /// skewed to the left.
+    var fillsWidth: Bool = false
 
     private var mono: Bool { renderingMode.isMonochrome }
     /// The metric accents are mid-tone, and a mid-tone is what the mask has
@@ -290,6 +297,8 @@ struct Stat: View {
                     .font(.system(size: 9, weight: mono ? .semibold : .medium))
                     .tracking(1.1)
                     .foregroundStyle(ink(mono ? 0.75 : 0.9))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value)
@@ -311,6 +320,7 @@ struct Stat: View {
                     .foregroundStyle(ink(mono ? 0.6 : 0.7))
             }
         }
+        .frame(maxWidth: fillsWidth ? CGFloat.infinity : nil, alignment: .leading)
     }
 
     @ViewBuilder
