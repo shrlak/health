@@ -59,6 +59,27 @@ export const round = (v: number | null | undefined, dp = 2): number | null =>
     ? null
     : Math.round(v * 10 ** dp) / 10 ** dp
 
+/**
+ * Collapse rows that share an upsert's conflict key, keeping the last one.
+ *
+ * Postgres aborts an `ON CONFLICT DO UPDATE` statement that would touch the
+ * same row twice ("cannot affect row a second time"), so a batch carrying two
+ * rows for one key fails outright rather than writing either. Callers that can
+ * legitimately produce a collision merge the rows themselves first; this is the
+ * backstop that keeps an unforeseen duplicate from failing the whole sync.
+ */
+export function dedupeBy(
+  rows: Record<string, unknown>[],
+  keyColumns: string,
+): Record<string, unknown>[] {
+  const cols = keyColumns.split(',').map((c) => c.trim()).filter(Boolean)
+  if (!cols.length) return rows
+
+  const byKey = new Map<string, Record<string, unknown>>()
+  for (const row of rows) byKey.set(cols.map((c) => String(row[c])).join('\u0000'), row)
+  return byKey.size === rows.length ? rows : [...byKey.values()]
+}
+
 /** Upsert in batches; Postgres caps parameters per statement. */
 export async function upsertAll(
   admin: { from: (t: string) => { upsert: (rows: unknown[], opts: { onConflict: string }) => Promise<{ error: { message: string } | null }> } },
@@ -67,9 +88,10 @@ export async function upsertAll(
   onConflict: string,
 ): Promise<number> {
   const BATCH = 500
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const { error } = await admin.from(table).upsert(rows.slice(i, i + BATCH), { onConflict })
+  const unique = dedupeBy(rows, onConflict)
+  for (let i = 0; i < unique.length; i += BATCH) {
+    const { error } = await admin.from(table).upsert(unique.slice(i, i + BATCH), { onConflict })
     if (error) throw new Error(`${table}: ${error.message}`)
   }
-  return rows.length
+  return unique.length
 }

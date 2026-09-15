@@ -54,6 +54,27 @@ export function parseInWorker(
   })
 }
 
+/**
+ * Keep one row per conflict key, the last seen.
+ *
+ * Postgres aborts an `ON CONFLICT DO UPDATE` statement that would touch the
+ * same row twice, so a file holding two entries for one key would otherwise
+ * fail the whole import rather than just that pair.
+ */
+function dedupeBy<T extends object>(rows: T[], conflict: string, userId: string): T[] {
+  const cols = conflict.split(',').map((c) => c.trim()).filter(Boolean)
+  if (!cols.length) return rows
+
+  const byKey = new Map<string, T>()
+  for (const row of rows) {
+    const key = cols
+      .map((c) => (c === 'user_id' ? userId : String((row as Record<string, unknown>)[c])))
+      .join('\u0000')
+    byKey.set(key, row)
+  }
+  return byKey.size === rows.length ? rows : [...byKey.values()]
+}
+
 async function upsertAll<T extends object>(
   table: string,
   rows: T[],
@@ -61,11 +82,12 @@ async function upsertAll<T extends object>(
   userId: string,
   onProgress: (done: number, total: number) => void,
 ) {
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const chunk = rows.slice(i, i + BATCH).map((r) => ({ ...r, user_id: userId }))
+  const unique = dedupeBy(rows, conflict, userId)
+  for (let i = 0; i < unique.length; i += BATCH) {
+    const chunk = unique.slice(i, i + BATCH).map((r) => ({ ...r, user_id: userId }))
     const { error } = await supabase.from(table).upsert(chunk, { onConflict: conflict })
     if (error) throw new Error(`Saving ${table} failed: ${error.message}`)
-    onProgress(Math.min(i + BATCH, rows.length), rows.length)
+    onProgress(Math.min(i + BATCH, unique.length), unique.length)
   }
 }
 
