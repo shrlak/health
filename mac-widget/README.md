@@ -139,6 +139,7 @@ onto the desktop or into Notification Center.
 | Widget is blank or stuck on placeholder text | Open the Whoop app. It fetches the same endpoint the same way and has room to say what failed. |
 | **Whoop** is not in the Edit Widgets list | The app has not been run from a stable location. Do step 7. |
 | The number looks stale | WidgetKit budgets refreshes. Open the app and press **Refresh**, which reloads every timeline. |
+| Numbers missing, or cut off at an edge | A build from before the layouts owned their margins. `git pull`, then rebuild with **⌘R** — the widget reloads once the new app has launched. |
 | A wall of `com.apple.linkd.autoShortcut` errors in the console | Not a failure, and it only appears once the app has launched. Every sandboxed app tries to register with the Shortcuts service at startup and the sandbox denies it; this one uses no App Intents, so nothing is lost. Filter the Xcode console by `Whoop` to hide it. |
 
 ## Where the token lives
@@ -164,13 +165,19 @@ assuming today.
 ```
 small                          medium
 ┌──────────────┐               ┌────────────────────────────────┐
-│  ◜◝          │               │   ◜◝     Sun 14 Sep            │
-│ ◟  ◞  82%    │               │  ◟  ◞    STRAIN  5.0  SLEEP 9h │
-│              │               │   82%    HRV 84 ms  RHR 45 bpm │
-│ STRAIN  5.0  │               │ RECOVERY ╱╲__╱‾╲__╱‾           │
-│ SLEEP   9h32 │               │                                │
-└──────────────┘               └────────────────────────────────┘
+│     ◜◝       │               │    ◜◝    Sun 14 Sep            │
+│    ◟82%◞     │               │   ◟82%◞  STRAIN 5.0  SLEEP 9h  │
+│   RECOVERY   │               │  RECOVERY HRV 84 ms  RHR 45bpm │
+│              │               │          ╱╲__╱‾╲__╱‾           │
+│ STRAIN SLEEP │               └────────────────────────────────┘
+│ 5.0    9h32  │
+└──────────────┘
 ```
+
+Both sizes set their own margins rather than taking the system's, which are
+sized for a phone's home screen and left the medium layout a few points short
+of fitting. A widget clips what does not fit instead of shrinking it, so those
+few points cost whole rows of numbers.
 
 ## If it is blank
 
