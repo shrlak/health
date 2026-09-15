@@ -49,8 +49,18 @@ export function ImportPanel({
     <div className="space-y-4">
       <Card>
         <SectionTitle hint="Files are parsed in your browser. Only daily summaries are uploaded, never the raw sample stream.">
-          Import data
+          Import a file
         </SectionTitle>
+
+        <a
+          href="#/connections"
+          className="t-footnote mb-3 flex items-center justify-between rounded-[var(--r-tile)] bg-[var(--surface-2)] px-4 py-3"
+        >
+          <span className="text-[var(--label-2)]">
+            Prefer not to do this by hand? Set up automatic syncing.
+          </span>
+          <span className="font-medium text-[var(--tint)]">Connections</span>
+        </a>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <ImportTile

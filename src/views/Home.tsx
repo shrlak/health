@@ -223,7 +223,7 @@ export function Home({ d }: { d: Derived }) {
           <BrowseTile to="/sleep" label="Sleep" color={palette.series[6]} />
           <BrowseTile to="/heart" label="Heart" color={palette.series[0]} />
           <BrowseTile to="/move" label="Move" color={palette.series[2]} />
-          <BrowseTile to="/import" label="Import" color={palette.series[1]} />
+          <BrowseTile to="/connections" label="Auto sync" color={palette.series[3]} />
         </div>
       </section>
     </div>

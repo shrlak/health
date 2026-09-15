@@ -43,16 +43,20 @@ recorded.
 
 ## Getting your data in
 
-Neither source syncs automatically yet; both start as file imports.
+Whoop syncs automatically once connected, and an app on your iPhone can push
+Apple Health on a schedule — see [Automatic syncing](#automatic-syncing). File
+import stays available for backfilling history, and is the fastest way to load
+years of data at once.
 
-**Apple Health** has no public cloud API. The only way out is the export:
+**Apple Health** has no public cloud API. To load history by hand:
 
 1. Open **Health** on your iPhone
 2. Tap your photo, top right
 3. Scroll down and tap **Export All Health Data**
 4. Save the zip and choose it on the Import tab
 
-**Whoop** does have a developer API (wired up in phase 2, below). For now:
+**Whoop** has a developer API, so the Connections tab is the better route. To
+load history by hand instead:
 
 1. Open **Whoop** → **Settings** → **Data Export**
 2. Tap **Download my data**; Whoop emails you a zip of CSVs
@@ -180,23 +184,108 @@ same metric can arrive as miles or kilometres, pounds or kilograms, °F or °C.
 Timestamps keep the offset that was in effect when the sample was recorded, so
 days stay correct across travel and daylight saving.
 
-## Phase 2: automatic Whoop sync
+## Automatic syncing
 
-The schema has a `whoop_tokens` table ready for it. To finish the wiring:
+The two sources are not symmetrical, and the app says so rather than pretending
+otherwise.
 
-1. Register an app at [developer.whoop.com](https://developer.whoop.com) and set
-   the redirect URI to your deployed URL
-2. Put the client ID and secret in a Supabase Edge Function — never in the
-   frontend, since the secret must not ship to the browser
-3. Have the function run the OAuth exchange, store the tokens, and pull
-   `/v1/cycle`, `/v1/recovery`, `/v1/activity/sleep` and `/v1/activity/workout`
-   into the same tables using source `whoop_api`, which already outranks
-   `whoop_csv` everywhere it matters
-4. Schedule it nightly with `pg_cron`
+**Whoop has a developer API**, so the dashboard genuinely pulls from it. You
+authorize once and a scheduled job fetches new cycles, recoveries, sleeps and
+workouts every six hours — six-hourly rather than nightly because Whoop
+finalises a night when you wake, and overnight shifts move that around the
+clock.
 
-Apple Health cannot be automated the same way. The nearest option is a
-third-party iOS app such as Health Auto Export, which can POST to an endpoint on
-a schedule; the alternative is re-running the manual export periodically.
+**Apple Health has no cloud API.** HealthKit lives on the device and Apple
+provides no server to read it from, so nothing can pull it — not this dashboard
+and not anything else. Every "Apple Health integration" works the same way:
+something on the phone sends the data out. So the app exposes a push endpoint
+instead and an app on your iPhone posts to it on a schedule.
+
+Both land in the same tables as the file importers, so the dashboard does not
+care how a row arrived.
+
+### One-time setup
+
+Everything below is on the **Connections** tab in the app, except the two
+credential steps, which need the Supabase dashboard.
+
+**1. Register a Whoop app** at [developer.whoop.com](https://developer.whoop.com):
+
+- Redirect URI: `https://datihyxdmpshreyifvzn.supabase.co/functions/v1/whoop-callback`
+- Scopes: `offline read:recovery read:cycles read:sleep read:workout read:profile read:body_measurement`
+
+`offline` is the one that matters — without it the connection expires after an
+hour and cannot renew itself.
+
+**2. Add the credentials** as Edge Function secrets (Supabase dashboard →
+Edge Functions → Secrets):
+
+| Secret | Value |
+|---|---|
+| `WHOOP_CLIENT_ID` | from your Whoop app |
+| `WHOOP_CLIENT_SECRET` | from your Whoop app |
+| `APP_URL` | `https://shrlak.github.io/health/` |
+
+The client secret lives only here. It is never sent to the browser, which is
+why the OAuth exchange runs in an Edge Function rather than in the page.
+
+**3. Let the scheduler authenticate.** Run once in the SQL editor:
+
+```sql
+select vault.create_secret('<your service role key>', 'service_role_key');
+```
+
+The scheduled job reads the key from Vault at run time rather than having it
+written into the job definition, so it is not sitting in `cron.job` for anyone
+with database access to read. Until this secret exists the job exits quietly
+instead of failing every six hours.
+
+**4. Connect.** Open **Connections** in the app and press *Connect Whoop*.
+
+**5. For Apple Health**, create a token on the same page, then install
+[Health Auto Export](https://apps.apple.com/app/id1115567069) and add a REST API
+automation pointing at the endpoint shown there, with an `Authorization:
+Bearer YOUR_TOKEN` header, JSON format and daily aggregation. Any app or
+Shortcut that can POST JSON on a schedule works equally well.
+
+### How it is put together
+
+| Function | Role |
+|---|---|
+| `whoop-connect` | Starts the OAuth round trip and stores a one-time state value |
+| `whoop-callback` | Whoop's redirect target; exchanges the code and stores the tokens |
+| `whoop-sync` | Pulls new data — called by the schedule for everyone, or by *Sync now* for you |
+| `health-ingest` | Receives Apple Health pushes from the phone |
+| `ingest-token` | Mints and revokes the phone's bearer tokens |
+
+Notes worth keeping in mind if you change any of it:
+
+- Every function validates the caller itself rather than using Supabase's
+  built-in `verify_jwt`. That check also accepts the project's anon key, which
+  every visitor has — so relying on it would have left token minting open to
+  anyone who loaded the page.
+- Ingest tokens are stored only as SHA-256 hashes. A leaked database row does
+  not yield a working credential, and the plaintext is shown exactly once.
+- The Whoop sync is incremental, asking for everything since the last success
+  less two days of overlap, because Whoop revises a night's scores for a while
+  afterwards. Upserts make the overlap harmless.
+- Whoop invalidates the previous access token the moment a refresh succeeds, so
+  the new pair is persisted before any data request uses it.
+- One account's failure is recorded against that account and does not stop the
+  rest of a scheduled run.
+
+### A caveat on the Whoop mapping
+
+The Whoop code was written against the published v2 documentation and could not
+be exercised against a live account, so every field is read through a tolerant
+accessor: a renamed or missing value degrades to null rather than throwing
+mid-sync. `npm test` covers the mapping with fixtures built from the documented
+shapes — day attribution across timezones, millisecond-to-minute conversions,
+kilojoules to kilocalories, metres to kilometres, and that `zone_zero` is
+excluded from the five heart-rate zones.
+
+If a sync ever lands wrong data, correct the fixture in `scripts/test-sync.ts`
+first and let it fail, then fix the mapper.
 
 ## Design
 

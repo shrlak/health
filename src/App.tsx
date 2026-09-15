@@ -26,6 +26,8 @@ const MetricDetail = lazy(() =>
   import('./views/MetricDetail').then((m) => ({ default: m.MetricDetail })))
 const ImportPanel = lazy(() =>
   import('./components/ImportPanel').then((m) => ({ default: m.ImportPanel })))
+const Connections = lazy(() =>
+  import('./views/Connections').then((m) => ({ default: m.Connections })))
 
 interface TabDef { path: string; label: string; short: string; icon: string }
 
@@ -37,6 +39,7 @@ const TABS: TabDef[] = [
   { path: '/heart',     label: 'Heart',     short: 'Heart', icon: 'heart' },
   { path: '/move',      label: 'Move',      short: 'Move', icon: 'flame' },
   { path: '/import',    label: 'Import',    short: 'Import', icon: 'arrow' },
+  { path: '/connections', label: 'Connections', short: 'Sync', icon: 'link' },
 ]
 
 export default function App() {
@@ -120,6 +123,7 @@ export default function App() {
                 : route.path === '/sleep' ? <Sleep d={derived} />
                 : route.path === '/heart' ? <Recovery d={derived} />
                 : route.path === '/move' ? <Move d={derived} />
+                : route.path === '/connections' ? <Connections />
                 : route.path === '/import' && user
                   ? <ImportPanel userId={user.id} imports={imports} onDone={reload} />
                   : <NotFound />}
@@ -255,9 +259,9 @@ function Header({
 
 /** iOS-style glass tab bar, floating clear of the home indicator. */
 function TabBar({ currentPath }: { currentPath: string }) {
-  // Six targets is already tight at 390px, so Longevity lives in the summary
-  // page's Browse row on phones rather than taking a seventh slot here.
-  const phoneTabs = TABS.filter((t) => t.path !== '/longevity')
+  // Six targets is already tight at 390px, so Longevity and Connections live
+  // in the summary page's Browse row on phones rather than crowding this.
+  const phoneTabs = TABS.filter((t) => t.path !== '/longevity' && t.path !== '/connections')
 
   return (
     <nav
@@ -313,6 +317,8 @@ function TabIcon({ name, active }: { name: string; active: boolean }) {
       return <svg {...common}><path d="M12 20s-7-4.5-7-9.5A4 4 0 0112 8a4 4 0 017 2.5c0 5-7 9.5-7 9.5z" /></svg>
     case 'flame':
       return <svg {...common}><path d="M12 3s5 4.5 5 9a5 5 0 01-10 0c0-1.6.7-3 1.5-4 .3 1.2 1 2 1.8 2 0-2.5.9-5 1.7-7z" /></svg>
+    case 'link':
+      return <svg {...common} fill="none" strokeWidth={1.8}><path d="M10 13a5 5 0 007.5.5l2-2a5 5 0 00-7-7l-1 1" /><path d="M14 11a5 5 0 00-7.5-.5l-2 2a5 5 0 007 7l1-1" /></svg>
     default:
       return <svg {...common}><path d="M12 4v11" /><path d="M8 11l4 4 4-4" /><path d="M5 20h14" /></svg>
   }

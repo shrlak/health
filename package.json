@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "oxlint",
-    "test": "tsx scripts/test-parsers.ts",
+    "test": "tsx scripts/test-parsers.ts && tsx scripts/test-sync.ts",
     "typecheck": "tsc -b --noEmit",
     "harness": "vite build --config vite.harness.config.ts"
   },

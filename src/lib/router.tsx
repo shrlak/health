@@ -16,10 +16,12 @@ import {
  */
 
 export interface Route {
-  /** Path without the leading "#", always starting with "/". */
+  /** Path without the leading "#" or any query, always starting with "/". */
   path: string
   /** Path split into non-empty segments. */
   segments: string[]
+  /** Parsed query string, for OAuth callbacks that return state in the hash. */
+  query: URLSearchParams
 }
 
 interface Ctx {
@@ -35,8 +37,13 @@ const RouterContext = createContext<Ctx | null>(null)
 
 function read(): Route {
   const raw = window.location.hash.replace(/^#/, '')
-  const path = raw.startsWith('/') ? raw : '/' + raw
-  return { path, segments: path.split('/').filter(Boolean) }
+  const withSlash = raw.startsWith('/') ? raw : '/' + raw
+  // Split the query off, so a callback like "#/connections?whoop=connected"
+  // still matches the /connections route.
+  const q = withSlash.indexOf('?')
+  const path = q === -1 ? withSlash : withSlash.slice(0, q)
+  const query = new URLSearchParams(q === -1 ? '' : withSlash.slice(q + 1))
+  return { path, segments: path.split('/').filter(Boolean), query }
 }
 
 export function RouterProvider({ children }: { children: ReactNode }) {
@@ -55,7 +62,8 @@ export function RouterProvider({ children }: { children: ReactNode }) {
 
   const navigate = useCallback((to: string, opts?: { replace?: boolean }) => {
     const target = to.startsWith('/') ? to : '/' + to
-    if (target === read().path) return
+    const current = window.location.hash.replace(/^#/, '')
+    if (target === (current.startsWith('/') ? current : '/' + current)) return
     if (opts?.replace) {
       window.history.replaceState(null, '', '#' + target)
       setRoute(read())
