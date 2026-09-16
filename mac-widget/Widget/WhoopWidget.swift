@@ -198,27 +198,19 @@ private struct TrendSpec: Identifiable {
 struct LargeView: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
     let summary: Summary
-    /// Extra-large gets the same sections in two columns rather than a taller
-    /// stack, which would leave half of it empty.
-    var wide: Bool = false
 
     private var mono: Bool { renderingMode.isMonochrome }
 
-    @ViewBuilder
     var body: some View {
-        if wide {
-            wideLayout
-        } else {
-            ViewThatFits(in: .vertical) {
-                stacked(trendRows: 5, ring: 84, spacing: 10, showMeters: true)
-                stacked(trendRows: 4, ring: 78, spacing: 9, showMeters: true)
-                stacked(trendRows: 3, ring: 72, spacing: 8, showMeters: true)
-                stacked(trendRows: 2, ring: 66, spacing: 7, showMeters: true)
-                stacked(trendRows: 2, ring: 62, spacing: 6, showMeters: false)
-                stacked(trendRows: 0, ring: 58, spacing: 5, showMeters: false)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        ViewThatFits(in: .vertical) {
+            stacked(trendRows: 5, ring: 84, spacing: 10, showMeters: true)
+            stacked(trendRows: 4, ring: 78, spacing: 9, showMeters: true)
+            stacked(trendRows: 3, ring: 72, spacing: 8, showMeters: true)
+            stacked(trendRows: 2, ring: 66, spacing: 7, showMeters: true)
+            stacked(trendRows: 2, ring: 62, spacing: 6, showMeters: false)
+            stacked(trendRows: 0, ring: 58, spacing: 5, showMeters: false)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     // MARK: Arrangements
@@ -240,26 +232,6 @@ struct LargeView: View {
             footer
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var wideLayout: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            header
-            HStack(alignment: .top, spacing: 18) {
-                VStack(alignment: .leading, spacing: 12) {
-                    hero(ringSize: 96)
-                    statTile(columns: 2)
-                    metersSection
-                    Spacer(minLength: 0)
-                }
-                VStack(alignment: .leading, spacing: 12) {
-                    trendsSection(limit: 5, rowHeight: 28)
-                    Spacer(minLength: 0)
-                }
-            }
-            footer
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     // MARK: Sections
@@ -543,7 +515,6 @@ struct WhoopWidgetView: View {
                 switch family {
                 case .systemSmall: SmallView(summary: summary)
                 case .systemMedium: MediumView(summary: summary)
-                case .systemExtraLarge: LargeView(summary: summary, wide: true)
                 default: LargeView(summary: summary)
                 }
             }
@@ -562,11 +533,12 @@ struct WhoopWidget: Widget {
         }
         .configurationDisplayName("Whoop")
         .description("Recovery, strain and sleep from your Whoop. "
-                     + "The larger sizes add heart rate, sleep against need, and a week of every trend.")
-        // Every size macOS offers, so the size is a choice made when the
-        // widget is dragged out rather than one baked in here. A family the
-        // running system does not offer simply never appears in the gallery.
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
+                     + "The large size adds heart rate, sleep against need, and a week of every trend.")
+        // The three sizes macOS offers, so the size is a choice made when the
+        // widget is dragged out rather than one baked in here. There is no
+        // fourth: `systemExtraLarge` is an iPad family, unavailable to a macOS
+        // target, and naming it here does not compile.
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
         // The layouts pad themselves; see WhoopWidgetView.
         .contentMarginsDisabled()
     }
