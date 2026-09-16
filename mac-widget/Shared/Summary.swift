@@ -57,13 +57,21 @@ struct TrendDelta {
     }
 }
 
-private func trendDelta(_ points: [TrendPoint], decimals: Int) -> TrendDelta? {
+/// `format` is for a metric whose raw unit does not read as a number beside
+/// its own value: sleep is held in minutes, so a bare "112" next to "5h 20m"
+/// says nothing until it is rendered as a duration too.
+private func trendDelta(
+    _ points: [TrendPoint],
+    decimals: Int,
+    format: ((Double) -> String)? = nil
+) -> TrendDelta? {
     guard points.count > 1, let latest = points.last?.value else { return nil }
     let prior = points.dropLast().map(\.value)
     let mean = prior.reduce(0, +) / Double(prior.count)
     let diff = latest - mean
     let direction: TrendDelta.Direction = abs(diff) < 0.05 ? .flat : (diff > 0 ? .up : .down)
-    return TrendDelta(direction: direction, magnitudeText: String(format: "%.\(decimals)f", abs(diff)))
+    let magnitude = format?(abs(diff)) ?? String(format: "%.\(decimals)f", abs(diff))
+    return TrendDelta(direction: direction, magnitudeText: magnitude)
 }
 
 /// A trend window reduced to what the large layout labels a sparkline with:
@@ -295,7 +303,7 @@ extension Summary {
     /// show a trend for.
     var hrvDelta: TrendDelta? { trendDelta(hrvTrendPoints, decimals: 0) }
     var restingHrDelta: TrendDelta? { trendDelta(restingHrTrendPoints, decimals: 0) }
-    var sleepDelta: TrendDelta? { trendDelta(sleepTrendPoints, decimals: 0) }
+    var sleepDelta: TrendDelta? { trendDelta(sleepTrendPoints, decimals: 0, format: durationText) }
 
     /// A week of each metric, for the large layout's labelled trend rows.
     var recoveryWeek: TrendStats? { TrendStats(recoveryTrend, days: 7) }
