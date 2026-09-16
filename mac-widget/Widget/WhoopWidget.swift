@@ -199,14 +199,14 @@ struct LargeView: View {
 
     var body: some View {
         ViewThatFits(in: .vertical) {
-            stacked(ring: 50, dayRows: 3, heartRows: 4, spacing: 8)
-            stacked(ring: 48, dayRows: 3, heartRows: 3, spacing: 7)
-            stacked(ring: 46, dayRows: 3, heartRows: 2, spacing: 7)
-            stacked(ring: 44, dayRows: 2, heartRows: 2, spacing: 6)
-            stacked(ring: 42, dayRows: 2, heartRows: 1, spacing: 6)
-            stacked(ring: 40, dayRows: 2, heartRows: 0, spacing: 5)
-            stacked(ring: 38, dayRows: 1, heartRows: 0, spacing: 5)
-            stacked(ring: 36, dayRows: 0, heartRows: 0, spacing: 4)
+            stacked(ring: 58, dayRows: 3, heartRows: 4, spacing: 10)
+            stacked(ring: 56, dayRows: 3, heartRows: 3, spacing: 9)
+            stacked(ring: 54, dayRows: 3, heartRows: 2, spacing: 9)
+            stacked(ring: 52, dayRows: 2, heartRows: 2, spacing: 8)
+            stacked(ring: 50, dayRows: 2, heartRows: 1, spacing: 8)
+            stacked(ring: 48, dayRows: 2, heartRows: 0, spacing: 7)
+            stacked(ring: 46, dayRows: 1, heartRows: 0, spacing: 6)
+            stacked(ring: 44, dayRows: 0, heartRows: 0, spacing: 5)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
@@ -218,10 +218,10 @@ struct LargeView: View {
             header
             rings(diameter: ring)
             if dayRows > 0 {
-                section(title: "LAST 7 DAYS", specs: daySpecs, limit: dayRows, rowHeight: 20)
+                section(title: "LAST 7 DAYS", specs: daySpecs, limit: dayRows, rowHeight: 26)
             }
             if heartRows > 0 {
-                section(title: "HEART", specs: heartSpecs, limit: heartRows, rowHeight: 20)
+                section(title: "HEART", specs: heartSpecs, limit: heartRows, rowHeight: 26)
             }
             footer
         }
@@ -236,11 +236,11 @@ struct LargeView: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(summary.dayText)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white.opacity(mono ? 0.85 : 0.9))
             Spacer(minLength: 6)
             Text(summary.readinessLongLabel)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(mono ? Color.white.opacity(0.75) : summary.readinessColor)
         }
         .lineLimit(1)
@@ -251,7 +251,7 @@ struct LargeView: View {
     /// hundred, readiness out of ten, the night as a percentage of its need,
     /// strain against a maxed-out day, and the burn against the day before.
     private func rings(diameter: CGFloat) -> some View {
-        HStack(alignment: .top, spacing: 5) {
+        HStack(alignment: .top, spacing: 6) {
             RingGauge(
                 title: "RECOVERY", value: summary.recoveryText,
                 caption: summary.recoveryDelta.map { "\($0.symbol)\($0.magnitudeText)" },
@@ -295,7 +295,7 @@ struct LargeView: View {
     }
 
     private func section(title: String, specs: [TrendSpec], limit: Int, rowHeight: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 5) {
             SectionHeader(title: title)
             columns(Array(specs.prefix(limit)), rowHeight: rowHeight)
         }
@@ -305,9 +305,9 @@ struct LargeView: View {
     /// take far less width than they do height. An odd one out gets the line
     /// to itself rather than stretching to fill its partner's half.
     private func columns(_ specs: [TrendSpec], rowHeight: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 5) {
             ForEach(Array(stride(from: 0, to: specs.count, by: 2)), id: \.self) { index in
-                HStack(alignment: .top, spacing: 14) {
+                HStack(alignment: .top, spacing: 18) {
                     row(specs[index], height: rowHeight)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if index + 1 < specs.count {

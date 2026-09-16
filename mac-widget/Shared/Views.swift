@@ -436,10 +436,10 @@ struct TrendRow: View {
     /// case that sets it: "5h 20m ↓1h 52m" is half as wide again as "92% ↑37",
     /// and the column is shared, so it is sized for the longest row rather
     /// than truncating that one.
-    var labelWidth: CGFloat = 76
+    var labelWidth: CGFloat = 88
     /// The large layout drops this a couple of points when it has to fit more
     /// rows into the same canvas; see `LargeView`.
-    var height: CGFloat = 24
+    var height: CGFloat = 30
 
     private var mono: Bool { renderingMode.isMonochrome }
 
@@ -448,19 +448,19 @@ struct TrendRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 1) {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.system(size: 8 * textScale, weight: mono ? .semibold : .medium))
+                    .font(.system(size: 9.5 * textScale, weight: mono ? .semibold : .medium))
                     .tracking(0.9)
                     .foregroundStyle(ink(mono ? 0.75 : 0.9))
-                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(value)
-                        .font(.system(size: 11 * textScale, weight: .semibold, design: .rounded))
+                        .font(.system(size: 14 * textScale, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white)
                     if let delta, delta.direction != .flat {
                         Text("\(delta.symbol)\(delta.magnitudeText)")
-                            .font(.system(size: 7.5 * textScale, weight: .semibold, design: .rounded))
+                            .font(.system(size: 9 * textScale, weight: .semibold, design: .rounded))
                             .foregroundStyle(ink(mono ? 0.7 : 0.85))
                     }
                 }
@@ -471,7 +471,7 @@ struct TrendRow: View {
 
             if let detail {
                 Text(detail)
-                    .font(.system(size: 7.5 * textScale, weight: .medium))
+                    .font(.system(size: 9.5 * textScale, weight: .medium))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .foregroundStyle(Color.white.opacity(mono ? 0.6 : 0.5))
@@ -496,7 +496,7 @@ struct SectionHeader: View {
     var body: some View {
         HStack(spacing: 6) {
             Text(title)
-                .font(.system(size: 8 * textScale, weight: .semibold))
+                .font(.system(size: 9.5 * textScale, weight: .semibold))
                 .tracking(1.2)
                 .foregroundStyle(Color.white.opacity(renderingMode.isMonochrome ? 0.7 : 0.55))
             Rectangle()
@@ -548,13 +548,13 @@ struct RingGauge: View {
             .frame(width: diameter, height: diameter)
 
             Text(title)
-                .font(.system(size: 8 * textScale, weight: mono ? .semibold : .medium))
+                .font(.system(size: 9.5 * textScale, weight: mono ? .semibold : .medium))
                 .tracking(0.9)
                 .foregroundStyle(mono ? Color.white.opacity(0.75) : color.opacity(0.9))
 
             if let caption {
                 Text(caption)
-                    .font(.system(size: 7.5 * textScale, weight: .medium))
+                    .font(.system(size: 9 * textScale, weight: .medium))
                     .foregroundStyle(.white.opacity(mono ? 0.6 : 0.5))
             }
         }

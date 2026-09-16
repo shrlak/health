@@ -23,9 +23,9 @@ struct ContentView: View {
     @State private var loading = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 20) {
             Text("Whoop")
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .font(.system(size: 26, weight: .bold, design: .rounded))
                 .foregroundStyle(GlassPalette.accent)
 
             if loading {
@@ -66,7 +66,7 @@ struct ContentView: View {
                 Task { await load() }
             }
         }
-        .padding(20)
+        .padding(24)
         // Those views are written in sizes budgeted for a widget, where the
         // captions are fine print on a desktop. Nothing here is fighting for
         // room, so the whole scale goes up together.
@@ -90,14 +90,14 @@ struct ContentView: View {
     @ViewBuilder
     private func loaded(_ summary: Summary) -> some View {
         GlassCard(cornerRadius: 16) {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 24) {
                 header(summary)
                 rings(summary)
                 dayTrends(summary)
                 heart(summary)
                 footer(summary)
             }
-            .padding(18)
+            .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -105,11 +105,11 @@ struct ContentView: View {
     private func header(_ summary: Summary) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(summary.dayText)
-                .font(.title3.weight(.semibold))
+                .font(.title2.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.9))
             Spacer(minLength: 8)
             Text(summary.readinessLongLabel)
-                .font(.headline)
+                .font(.title3.weight(.semibold))
                 .foregroundStyle(summary.readinessColor)
         }
         .lineLimit(1)
@@ -122,14 +122,14 @@ struct ContentView: View {
     /// day in the window — the only one of the five whose ceiling is not a
     /// fixed number, since a day's burn has none of its own.
     private func rings(_ summary: Summary) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 16) {
             RingGauge(
                 title: "RECOVERY",
                 value: summary.recoveryText,
                 caption: summary.recoveryDelta.map { "\($0.symbol)\($0.magnitudeText) vs recent" },
                 fraction: summary.recoveryRingFraction,
                 color: summary.recoveryColor,
-                diameter: 92, lineWidth: 11, valueSize: 24
+                diameter: 106, lineWidth: 13, valueSize: 28
             )
             .frame(maxWidth: .infinity)
 
@@ -139,7 +139,7 @@ struct ContentView: View {
                 caption: "of 10",
                 fraction: summary.readinessFraction,
                 color: summary.readinessColor,
-                diameter: 76, lineWidth: 9, valueSize: 20
+                diameter: 88, lineWidth: 10, valueSize: 23
             )
             .frame(maxWidth: .infinity)
 
@@ -149,7 +149,7 @@ struct ContentView: View {
                 caption: summary.sleepMin != nil ? summary.sleepText : nil,
                 fraction: summary.sleepPercentFraction,
                 color: MetricPalette.sleep,
-                diameter: 76, lineWidth: 9, valueSize: 20
+                diameter: 88, lineWidth: 10, valueSize: 23
             )
             .frame(maxWidth: .infinity)
 
@@ -159,7 +159,7 @@ struct ContentView: View {
                 caption: "of 21",
                 fraction: summary.strainFraction,
                 color: MetricPalette.strain,
-                diameter: 76, lineWidth: 9, valueSize: 20
+                diameter: 88, lineWidth: 10, valueSize: 23
             )
             .frame(maxWidth: .infinity)
 
@@ -169,7 +169,7 @@ struct ContentView: View {
                 caption: summary.caloriesVsYesterdayText ?? "kcal",
                 fraction: summary.caloriesFraction,
                 color: GlassPalette.accentStart,
-                diameter: 76, lineWidth: 9, valueSize: 17
+                diameter: 88, lineWidth: 10, valueSize: 20
             )
             .frame(maxWidth: .infinity)
         }
@@ -182,7 +182,7 @@ struct ContentView: View {
     private func dayTrends(_ summary: Summary) -> some View {
         let specs = daySpecs(summary)
         if !specs.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 9) {
                 SectionHeader(title: "LAST 7 DAYS")
                 columns(specs)
             }
@@ -196,7 +196,7 @@ struct ContentView: View {
     private func heart(_ summary: Summary) -> some View {
         let specs = heartSpecs(summary)
         if !specs.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 9) {
                 SectionHeader(title: "HEART")
                 columns(specs)
             }
@@ -285,9 +285,9 @@ struct ContentView: View {
     /// take far less width than they do height. An odd one out gets the line
     /// to itself rather than stretching to fill its partner's half.
     private func columns(_ specs: [TrendSpec]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
             ForEach(Array(stride(from: 0, to: specs.count, by: 2)), id: \.self) { index in
-                HStack(alignment: .top, spacing: 24) {
+                HStack(alignment: .top, spacing: 32) {
                     row(specs[index]).frame(maxWidth: .infinity, alignment: .leading)
                     if index + 1 < specs.count {
                         row(specs[index + 1]).frame(maxWidth: .infinity, alignment: .leading)
