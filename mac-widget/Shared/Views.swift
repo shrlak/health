@@ -184,6 +184,9 @@ struct RecoveryRing: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, lineWidth)
         }
+        // The ring is square; without this a caller that frames only one axis
+        // gets an oval.
+        .aspectRatio(1, contentMode: .fit)
     }
 
     /// The glow behind the arc is depth in colour and haze in the mask, so it
