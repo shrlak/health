@@ -198,6 +198,15 @@ extension Summary {
         return diff < 0 ? "\(durationText(-diff)) short" : "\(durationText(diff)) over"
     }
 
+    /// 0…1 like `sleepFraction` and `strainFraction`: nil rather than zero when
+    /// nothing has been scored, so the ring trio draws an empty ring for a
+    /// missing figure instead of a full one at nothing. `recoveryFraction`
+    /// keeps its zero, since the headline ring is never absent.
+    var recoveryRingFraction: Double? {
+        guard let recovery else { return nil }
+        return min(max(recovery / 100, 0), 1)
+    }
+
     /// Whoop's day strain runs 0…21 on a logarithmic scale, so the fraction is
     /// for a progress meter, not a claim that 10.5 is half a hard day.
     var strainFraction: Double? {

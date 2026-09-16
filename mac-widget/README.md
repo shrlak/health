@@ -145,7 +145,7 @@ in Notification Center and a large one on the desktop read the same endpoint.
 | Widget says **Add your token in Config.swift** | `setup.sh` ran without a token. Run it again and paste one. |
 | Widget says **Token rejected** | The token was revoked or mistyped. Create a new one on Connections and re-run `setup.sh`. |
 | Widget says **Nothing synced yet** | The token works but the account has no Whoop data in the last two weeks. |
-| The large size shows fewer trend lines than the screenshot | Expected. It fits itself to the canvas your Mac gives it; see [Why the large size sometimes shows fewer trend lines](#why-the-large-size-sometimes-shows-fewer-trend-lines). |
+| The large size shows fewer trend rows than the screenshot | Expected. It fits itself to the canvas your Mac gives it; see [Why the large size sometimes shows fewer trend rows](#why-the-large-size-sometimes-shows-fewer-trend-rows). |
 | Average and peak heart rate show a dash | Those two arrived with the large size. The widget is newer than the deployed `whoop-widget` function — redeploy it (`supabase functions deploy whoop-widget`) and the next refresh fills them in. |
 | Widget is blank or stuck on placeholder text | Open the Whoop app. It fetches the same endpoint the same way and has room to say what failed. |
 | **Whoop** is not in the Edit Widgets list | The app has not been run from a stable location. Do step 7. |
@@ -181,12 +181,13 @@ assuming today.
 | Strain, sleep | ● | ● | ● |
 | Day being shown | | ● | ● |
 | HRV, resting heart rate | | ● | ● |
-| Readiness | | badge | meter, out of ten |
+| Readiness | | badge | under the recovery ring |
 | Calories | | ● | ● |
-| Average and peak heart rate | | | ● |
-| Sleep against the night's need | | | ● |
-| Day strain against a maxed-out day | | | ● |
-| Trend lines | | 3, unlabelled | up to 5, labelled |
+| Recovery, sleep and strain as rings | | | ● |
+| Sleep against the night's need | | | ● (ring) |
+| Day strain against a maxed-out day | | | ● (ring) |
+| Heart-rate range, resting to peak | | | ● |
+| Trend charts | | 3 lines, unlabelled | up to 5, labelled; strain as bars |
 | Seven-day average and range per metric | | | ● |
 | When it last refreshed | | | ● |
 
@@ -202,41 +203,51 @@ small                          medium
 
 large
 ┌────────────────────────────────┐
-│ WHOOP               Sun 14 Sep │
-│  ◜◝   RECOVERY ↑6 vs recent    │
-│ ◟  ◞  Ready                    │
-│  82%  READINESS         7.8/10 │
-│       ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░     │
+│ WHOOP               Tue 15 Sep │
+│    ◜◝       ◜◝       ◜◝        │
+│   ◟92%◞    ◟5h20◞   ◟6.7◞      │
+│  RECOVERY   SLEEP    STRAIN    │
+│   GO 8.1   of 7h57  2009 kcal  │
+│ HEART RATE  42 rest·65·122 peak│
+│ ▰▰▰▰▰●▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰  │
 │ ┌────────────────────────────┐ │
-│ │ STRAIN 5.0   │ SLEEP 9h32  │ │
-│ │ 1842 kcal    │ 92% · 88%   │ │
-│ │ HRV 84 ms ↑3 │ RHR 45 ↓1   │ │
-│ │ AVG HR 64    │ PEAK HR 141 │ │
+│ │ HRV 112 ms ↑44 │ RHR 42 ↓5 │ │
+│ │ 7d avg 71 ms   │ 7d avg 47 │ │
 │ └────────────────────────────┘ │
-│ SLEEP VS NEED  9h32 of 8h37    │
-│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  55m over│
-│ DAY STRAIN     5.0 of 21       │
-│ ▓▓▓▓▓░░░░░░░░░░░░░  7d avg 9.4 │
 │ LAST 7 DAYS ────────────────── │
-│ RECOVERY 82% ╱╲_╱ avg 62% 41–88│
-│ STRAIN  5.0  ╱╲_╱ avg 9.4      │
-│ SLEEP   9h32 ╱╲_╱ avg 7h10     │
-│ HRV     84ms ╱╲_╱ avg 71 ms    │
-│ RHR     45   ╱╲_╱ avg 48 bpm   │
-│ Updated 08:42 · 30 days logged │
+│ RECOVERY 92% ╱╲_╱ avg 82%      │
+│ STRAIN  6.7  ▁▃▅▂▇▄▃ avg 7.3   │
+│ HRV     112  ╱╲_╱ avg 71 ms    │
+│ Updated 23:19 · 30 days logged │
 └────────────────────────────────┘
 ```
 
-### Why the large size sometimes shows fewer trend lines
+### What the large size draws, and why
+
+Three things on it are drawn rather than written:
+
+- **The rings.** Recovery, sleep and strain are the three figures with a
+  ceiling — a hundred percent, the need Whoop set for the night, a maxed-out
+  day at 21 — so they get the same shape and can be compared without reading
+  the numbers. Each caption carries the figure that belongs with it: the
+  readiness score, the need, the calories.
+- **The heart-rate range.** Resting, average and peak as one track rather than
+  three numbers, with the average marked where it actually fell between the
+  other two. Three figures in a column say what they were; the track says how
+  hard the day was.
+- **Strain as columns.** Every other trend is a line, which reads as one
+  continuous thing and suits a metric that drifts between readings. A day's
+  strain is a separate effort each time, and bars say that where a line implies
+  a slope between them.
+
+### Why the large size sometimes shows fewer trend rows
 
 A widget cannot scroll, and it clips whatever does not fit instead of shrinking
 it. macOS also does not hand every Mac the same canvas for a large widget. So
 the large layout is written once and offered at several densities — five trend
-rows down to none, with the ring and the gaps tightening as it goes — and
-`ViewThatFits` draws the richest one that actually fits. The day's own numbers
-are in every variant; the trend rows are what gets dropped first, from the
-bottom up, since the two at the bottom are also shown as figures in the tile
-above.
+rows down to none, with the rings and the gaps tightening as it goes, and the
+heart-rate track giving way last — and `ViewThatFits` draws the richest one
+that actually fits. The rings and the day's numbers are in every variant.
 
 ## When the desktop is not in front
 
@@ -276,7 +287,7 @@ account with nothing synced yet, or no network.
 | --- | --- |
 | `project.yml` | The Xcode project, as a spec. Generated into `Whoop.xcodeproj` by `xcodegen`. |
 | `Shared/Summary.swift` | The response model, the fetch, and the display formatting. |
-| `Shared/Views.swift` | The ring, sparkline and stat views, shared by the app and the widget. |
+| `Shared/Views.swift` | The rings, meters, heart-rate track, sparklines and bars, shared by the app and the widget. |
 | `Widget/WhoopWidget.swift` | The timeline provider and the widget layouts, one per size. |
 | `App/WhoopApp.swift` | The container app, which is also the diagnostic window. |
 | `Config.example.swift` | Template for `Shared/Config.swift`. |

@@ -182,19 +182,19 @@ private struct TrendSpec: Identifiable {
     let color: Color
     let delta: TrendDelta?
     let detail: String
+    let style: TrendRow.Style
 }
 
-/// The large size, which is the one with room to answer "why" as well as
-/// "what": every figure the endpoint returns, each against its own baseline,
-/// rather than the four headline numbers the smaller sizes fit.
+/// The large size, which is the one with room to show the day rather than
+/// list it: three rings for the figures that have a ceiling, the day's heart
+/// rate as a range, strain as columns and the rest as trend lines.
 ///
 /// A widget cannot scroll and clips whatever does not fit, and macOS gives the
 /// large family a fixed canvas that is not the same on every display scale. So
 /// rather than one layout tuned to a guessed height, the same sections are
 /// offered at a few densities and `ViewThatFits` takes the richest one that
-/// actually fits: everything at full size on a roomy canvas, fewer trend rows
-/// and a smaller ring on a tight one, with the day's own numbers — the part
-/// that is not a nice-to-have — kept in every variant.
+/// actually fits: the rings and the day's numbers are in every variant, and
+/// the trend rows and the heart-rate diagram are what give way on a tight one.
 struct LargeView: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
     let summary: Summary
@@ -203,31 +203,29 @@ struct LargeView: View {
 
     var body: some View {
         ViewThatFits(in: .vertical) {
-            stacked(trendRows: 5, ring: 84, spacing: 10, showMeters: true)
-            stacked(trendRows: 4, ring: 78, spacing: 9, showMeters: true)
-            stacked(trendRows: 3, ring: 72, spacing: 8, showMeters: true)
-            stacked(trendRows: 2, ring: 66, spacing: 7, showMeters: true)
-            stacked(trendRows: 2, ring: 62, spacing: 6, showMeters: false)
-            stacked(trendRows: 0, ring: 58, spacing: 5, showMeters: false)
+            stacked(trendRows: 5, ring: 78, spacing: 10, showHeartRate: true)
+            stacked(trendRows: 4, ring: 74, spacing: 9, showHeartRate: true)
+            stacked(trendRows: 3, ring: 70, spacing: 8, showHeartRate: true)
+            stacked(trendRows: 2, ring: 66, spacing: 8, showHeartRate: true)
+            stacked(trendRows: 1, ring: 62, spacing: 7, showHeartRate: true)
+            stacked(trendRows: 1, ring: 60, spacing: 6, showHeartRate: false)
+            stacked(trendRows: 0, ring: 56, spacing: 5, showHeartRate: false)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     // MARK: Arrangements
 
-    /// Each variant is the same sections in the same order; only the ring, the
-    /// gaps and how much of the trend section survives change.
-    private func stacked(trendRows: Int, ring: CGFloat, spacing: CGFloat, showMeters: Bool) -> some View {
+    /// Each variant is the same sections in the same order; only the rings,
+    /// the gaps and how much of the trend section survives change.
+    private func stacked(trendRows: Int, ring: CGFloat, spacing: CGFloat, showHeartRate: Bool) -> some View {
         VStack(alignment: .leading, spacing: spacing) {
             header
-            hero(ringSize: ring)
-            // Two columns while there is height for three rows; three narrower
-            // columns once there is not, so all six figures survive in two
-            // rows rather than two of them being dropped.
-            statTile(columns: trendRows >= 4 ? 2 : 3)
-            if showMeters { metersSection }
+            ringRow(diameter: ring)
+            if showHeartRate { heartRate }
+            statTile
             if trendRows > 0 {
-                trendsSection(limit: trendRows, rowHeight: trendRows >= 4 ? 23 : 21)
+                trendsSection(limit: trendRows, rowHeight: trendRows >= 4 ? 22 : 24)
             }
             footer
         }
@@ -251,156 +249,84 @@ struct LargeView: View {
         .minimumScaleFactor(0.7)
     }
 
-    /// The ring, and beside it what the readiness score is made of: the band
-    /// in words, the score out of ten as a meter, and how today's recovery
-    /// sits against the days around it.
-    private func hero(ringSize: CGFloat) -> some View {
-        HStack(alignment: .center, spacing: 14) {
-            RecoveryRing(
-                fraction: summary.recoveryFraction,
+    /// The three figures that only mean something against a ceiling, drawn as
+    /// the same shape so they can be compared at a glance: recovery out of a
+    /// hundred, the night against the need Whoop set for it, the day's strain
+    /// against a maxed-out one.
+    ///
+    /// Each caption carries the figure that belongs with it — the readiness
+    /// score under recovery, the need under sleep, the calories under strain —
+    /// which is what lets the tile below stay to two stats.
+    private func ringRow(diameter: CGFloat) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            RingGauge(
+                title: "RECOVERY",
+                value: summary.recoveryText,
+                caption: summary.readiness != nil
+                    ? "\(summary.readinessShortLabel) \(summary.readinessText)" : nil,
+                fraction: summary.recoveryRingFraction,
                 color: summary.recoveryColor,
-                label: summary.recoveryText,
-                lineWidth: ringSize * 0.12,
-                labelSize: ringSize * 0.28
+                diameter: diameter,
+                lineWidth: diameter * 0.12,
+                valueSize: diameter * 0.26
             )
-            .frame(width: ringSize, height: ringSize)
+            .frame(maxWidth: .infinity)
 
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 4) {
-                    Text("RECOVERY")
-                        .font(.system(size: 9, weight: mono ? .semibold : .medium))
-                        .tracking(1.1)
-                        .foregroundStyle(mono ? Color.white.opacity(0.75)
-                                              : summary.recoveryColor.opacity(0.9))
-                    if let delta = summary.recoveryDelta, delta.direction != .flat {
-                        Text("\(delta.symbol)\(delta.magnitudeText) vs recent")
-                            .font(.system(size: 8, weight: .semibold, design: .rounded))
-                            .foregroundStyle(mono ? Color.white.opacity(0.7)
-                                                  : summary.recoveryColor.opacity(0.85))
-                    }
-                }
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-
-                Text(summary.readinessLongLabel)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-
-                MeterBar(
-                    label: "READINESS",
-                    value: "\(summary.readinessText)/10",
-                    fraction: summary.readinessFraction,
-                    color: summary.readinessColor
-                )
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    /// Everything the day itself was: the four headline metrics, plus the
-    /// three the smaller sizes have no room for — calories, and the average
-    /// and peak heart rate behind the strain score.
-    private func statTile(columns: Int) -> some View {
-        GlassCard(cornerRadius: 12) {
-            VStack(alignment: .leading, spacing: columns == 2 ? 7 : 8) {
-                if columns == 2 {
-                    HStack(spacing: 10) {
-                        strainStat
-                        sleepStat
-                    }
-                    HStack(spacing: 10) {
-                        hrvStat
-                        restingHrStat
-                    }
-                    HStack(spacing: 10) {
-                        avgHrStat
-                        peakHrStat
-                    }
-                } else {
-                    HStack(spacing: 10) {
-                        strainStat
-                        sleepStat
-                        hrvStat
-                    }
-                    HStack(spacing: 10) {
-                        restingHrStat
-                        avgHrStat
-                        peakHrStat
-                    }
-                }
-            }
-            .padding(columns == 2 ? 8 : 7)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private var strainStat: Stat {
-        Stat(
-            label: "STRAIN", value: summary.strainText,
-            color: MetricPalette.strain, delta: summary.strainDelta,
-            secondary: summary.calories != nil ? summary.caloriesText : nil,
-            fillsWidth: true
-        )
-    }
-
-    private var sleepStat: Stat {
-        Stat(
-            label: "SLEEP", value: summary.sleepText,
-            color: MetricPalette.sleep, delta: summary.sleepDelta,
-            secondary: summary.sleepSecondaryText,
-            fillsWidth: true
-        )
-    }
-
-    private var hrvStat: Stat {
-        Stat(
-            label: "HRV", value: summary.hrvText,
-            color: MetricPalette.hrv, delta: summary.hrvDelta,
-            secondary: summary.hrvWeek.map { "7d \($0.averageText()) ms" },
-            fillsWidth: true
-        )
-    }
-
-    private var restingHrStat: Stat {
-        Stat(
-            label: "RESTING HR", value: summary.restingHrText,
-            color: MetricPalette.restingHR, delta: summary.restingHrDelta,
-            secondary: summary.restingHrWeek.map { "7d \($0.averageText()) bpm" },
-            fillsWidth: true
-        )
-    }
-
-    private var avgHrStat: Stat {
-        Stat(label: "AVG HR", value: summary.avgHrText,
-             color: GlassPalette.accentStart, fillsWidth: true)
-    }
-
-    private var peakHrStat: Stat {
-        Stat(label: "PEAK HR", value: summary.maxHrText,
-             color: GlassPalette.accentEnd, fillsWidth: true)
-    }
-
-    /// The two figures that only mean something against a ceiling: the night
-    /// against the need Whoop calculated for it, and the day's strain against
-    /// a maxed-out one.
-    private var metersSection: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            MeterBar(
-                label: "SLEEP VS NEED",
-                value: "\(summary.sleepText) of \(summary.sleepNeedText)",
+            RingGauge(
+                title: "SLEEP",
+                value: summary.sleepText,
+                caption: summary.sleepNeedMin != nil ? "of \(summary.sleepNeedText)" : nil,
                 fraction: summary.sleepFraction,
                 color: MetricPalette.sleep,
-                caption: summary.sleepBalanceText
+                diameter: diameter,
+                lineWidth: diameter * 0.12,
+                valueSize: diameter * 0.21
             )
-            MeterBar(
-                label: "DAY STRAIN",
-                value: "\(summary.strainText) of 21",
+            .frame(maxWidth: .infinity)
+
+            RingGauge(
+                title: "STRAIN",
+                value: summary.strainText,
+                caption: summary.calories != nil ? summary.caloriesText : "of 21",
                 fraction: summary.strainFraction,
                 color: MetricPalette.strain,
-                caption: summary.strainWeek.map { "7d avg \($0.averageText(decimals: 1))" }
+                diameter: diameter,
+                lineWidth: diameter * 0.12,
+                valueSize: diameter * 0.26
             )
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var heartRate: some View {
+        HeartRateRange(
+            resting: summary.restingHr,
+            average: summary.avgHr,
+            peak: summary.maxHr
+        )
+    }
+
+    /// What is left once the rings and the heart-rate track have taken their
+    /// share: the two metrics with no ceiling to draw them against, each shown
+    /// against its own week instead.
+    private var statTile: some View {
+        GlassCard(cornerRadius: 12) {
+            HStack(spacing: 10) {
+                Stat(
+                    label: "HRV", value: summary.hrvText,
+                    color: MetricPalette.hrv, delta: summary.hrvDelta,
+                    secondary: summary.hrvWeek.map { "7d avg \($0.averageText()) ms" },
+                    fillsWidth: true
+                )
+                Stat(
+                    label: "RESTING HR", value: summary.restingHrText,
+                    color: MetricPalette.restingHR, delta: summary.restingHrDelta,
+                    secondary: summary.restingHrWeek.map { "7d avg \($0.averageText()) bpm" },
+                    fillsWidth: true
+                )
+            }
+            .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -413,15 +339,15 @@ struct LargeView: View {
                 TrendRow(
                     label: spec.label, value: spec.value, points: spec.points,
                     color: spec.color, delta: spec.delta, detail: spec.detail,
-                    height: rowHeight
+                    style: spec.style, height: rowHeight
                 )
             }
         }
     }
 
-    /// Built in the order they are worth losing from the bottom: recovery and
-    /// strain are the two the dashboard leads with, sleep next, and the two
-    /// that also appear as numbers in the tile above go last.
+    /// Built in the order they are worth losing from the bottom: recovery
+    /// leads, strain follows as the one drawn with bars, and the three the
+    /// rings and the tile already carry as numbers go last.
     private var trendSpecs: [TrendSpec] {
         var specs: [TrendSpec] = []
 
@@ -430,7 +356,8 @@ struct LargeView: View {
                 id: "recovery", label: "RECOVERY", value: summary.recoveryText,
                 points: Array(summary.recoveryTrend.suffix(7)),
                 color: summary.recoveryColor, delta: summary.recoveryDelta,
-                detail: "avg \(week.averageText(unit: "%")) · \(week.rangeText(unit: "%"))"
+                detail: "avg \(week.averageText(unit: "%")) · \(week.rangeText(unit: "%"))",
+                style: .line
             ))
         }
         if let week = summary.strainWeek {
@@ -438,15 +365,10 @@ struct LargeView: View {
                 id: "strain", label: "STRAIN", value: summary.strainText,
                 points: Array(summary.strainTrend.suffix(7)),
                 color: MetricPalette.strain, delta: summary.strainDelta,
-                detail: "avg \(week.averageText(decimals: 1)) · \(week.rangeText(decimals: 1))"
-            ))
-        }
-        if let week = summary.sleepWeek {
-            specs.append(TrendSpec(
-                id: "sleep", label: "SLEEP", value: summary.sleepText,
-                points: Array(summary.sleepTrendPoints.suffix(7)),
-                color: MetricPalette.sleep, delta: nil,
-                detail: "avg \(durationText(week.average)) · \(durationText(week.low))–\(durationText(week.high))"
+                detail: "avg \(week.averageText(decimals: 1)) · \(week.rangeText(decimals: 1))",
+                // A day's strain is a separate effort, not a level that drifts
+                // between readings, so it is the one drawn as columns.
+                style: .bars
             ))
         }
         if let week = summary.hrvWeek {
@@ -454,7 +376,8 @@ struct LargeView: View {
                 id: "hrv", label: "HRV", value: summary.hrvText,
                 points: Array(summary.hrvTrendPoints.suffix(7)),
                 color: MetricPalette.hrv, delta: summary.hrvDelta,
-                detail: "avg \(week.averageText(unit: " ms")) · \(week.rangeText())"
+                detail: "avg \(week.averageText(unit: " ms")) · \(week.rangeText())",
+                style: .line
             ))
         }
         if let week = summary.restingHrWeek {
@@ -462,7 +385,17 @@ struct LargeView: View {
                 id: "restingHr", label: "RESTING HR", value: summary.restingHrText,
                 points: Array(summary.restingHrTrendPoints.suffix(7)),
                 color: MetricPalette.restingHR, delta: summary.restingHrDelta,
-                detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
+                detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())",
+                style: .line
+            ))
+        }
+        if let week = summary.sleepWeek {
+            specs.append(TrendSpec(
+                id: "sleep", label: "SLEEP", value: summary.sleepText,
+                points: Array(summary.sleepTrendPoints.suffix(7)),
+                color: MetricPalette.sleep, delta: summary.sleepDelta,
+                detail: "avg \(durationText(week.average)) · \(durationText(week.low))–\(durationText(week.high))",
+                style: .line
             ))
         }
 
