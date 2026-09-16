@@ -73,6 +73,32 @@ rm -rf /Applications/Whoop.app
 cp -R "$APP" /Applications/Whoop.app
 echo "Installed:  /Applications/Whoop.app"
 
+# Xcode registers the widget extension it builds every time the app is run
+# from Xcode (Cmd-R), under the same identifier as the copy this script just
+# installed. Left registered, a DerivedData build sits there indefinitely —
+# including one from before some later change, such as when families were
+# last cut down — and the Edit Widgets gallery can end up reading its
+# declared sizes instead of this install's. So only the installed copy
+# should be left registered.
+#
+# Matched by pattern rather than an exact string: macOS answers some queries
+# about /Applications with /System/Volumes/Data/Applications instead, the
+# real path behind the firmlink, and pluginkit is one of them. Comparing for
+# exact equality against the /Applications spelling missed that alias and
+# unregistered the copy this script had just installed, along with the
+# DerivedData ones it was meant to catch.
+WIDGET_ID=$(plutil -extract CFBundleIdentifier raw \
+  /Applications/Whoop.app/Contents/PlugIns/WhoopWidget.appex/Contents/Info.plist 2>/dev/null) || true
+if [ -n "${WIDGET_ID:-}" ]; then
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    case "$path" in
+      /Applications/Whoop.app/*|/System/Volumes/Data/Applications/Whoop.app/*) continue ;;
+    esac
+    pluginkit -r "$path" 2>/dev/null || true
+  done < <(pluginkit -m -v -D -i "$WIDGET_ID" 2>/dev/null | awk '{print $NF}')
+fi
+
 # chronod is what backs the Edit Widgets gallery, and it caches each widget's
 # declared sizes rather than reading them fresh every time the panel opens. A
 # build that changes which families a widget offers — such as cutting it down
