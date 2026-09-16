@@ -128,6 +128,13 @@ It asks Xcode where the build went, copies it to `/Applications/Whoop.app`,
 and launches it once — which is what registers the widget extension. Run it
 after every **⌘R** you want the desktop to pick up.
 
+Two things it gets right that a hand-rolled `find` does not. Xcode's indexer
+writes its own `Whoop.app` under `Index.noindex` as a by-product of parsing the
+code — it is not built to run, and it is routinely *newer* than the real build,
+so picking the first or the most recent match finds the wrong one. And the Run
+action's configuration is a per-scheme setting, so a script that assumes Debug
+finds nothing on a project set to Release.
+
 If you would rather do it by hand: in Xcode's left sidebar, open the
 **Products** group, right-click **Whoop.app** → **Show in Finder**, drag it
 into **/Applications**, and launch it from there once. The Products group is
@@ -159,7 +166,7 @@ in Notification Center and a large one on the desktop read the same endpoint.
 | A figure shows a dash, or the calories ring is empty | The app is newer than the deployed `whoop-widget` function, so a field it wants is not in the payload yet. Redeploy it (`supabase functions deploy whoop-widget --no-verify-jwt`) and the next refresh fills it in. Every added field decodes as optional, so an old backend costs you that figure and nothing else. |
 | Widget is blank or stuck on placeholder text | Open the Whoop app. It fetches the same endpoint the same way and has room to say what failed. |
 | **Whoop** is not in the Edit Widgets list | The app has not been run from `/Applications`. Run `./install.sh`. |
-| You cannot find `Whoop.app` to copy | It is in DerivedData under a hashed directory name. Run `./install.sh`, which asks Xcode where the build went rather than making you look for it. |
+| You cannot find `Whoop.app` to copy | It is in DerivedData under a hashed directory name. Run `./install.sh`, which asks Xcode where the build went rather than making you look for it — and skips the indexer's copy under `Index.noindex`, which is not a runnable build. |
 | The number looks stale | WidgetKit budgets refreshes. Open the app and press **Refresh**, which reloads every timeline. |
 | Numbers missing, or cut off at an edge | A build from before the layouts owned their margins. `git pull`, then rebuild with **⌘R** — the widget reloads once the new app has launched. |
 | The stats are a blank slab, or numbers are missing, until you click the desktop | macOS renders desktop widgets without colour while another window is in front. See [When the desktop is not in front](#when-the-desktop-is-not-in-front). |

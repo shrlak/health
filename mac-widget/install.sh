@@ -7,30 +7,45 @@
 # yesterday's code until the day the directory is emptied and it stops showing
 # anything. This does the moving.
 #
-# Run it after every ⌘R that you want the desktop to pick up.
+# Run it after every build you want the desktop to pick up.
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
-# Ask Xcode where it put the build rather than guessing: the DerivedData
-# directory name carries a hash, and a custom build location moves it out of
-# DerivedData entirely.
+# The newest real build wins, whichever configuration produced it. Both are
+# considered because the Run action's configuration is a per-scheme setting:
+# assuming Debug finds nothing on a project set to Release.
 APP=""
+consider() {
+  [ -d "$1" ] || return 0
+  if [ -z "$APP" ] || [ "$1" -nt "$APP" ]; then APP="$1"; fi
+}
+
+# Ask Xcode where it put the build rather than guessing: the DerivedData
+# directory name carries a hash, and a custom build location moves the product
+# out of DerivedData altogether.
 if command -v xcodebuild >/dev/null 2>&1 && [ -d Whoop.xcodeproj ]; then
-  DIR=$(xcodebuild -project Whoop.xcodeproj -scheme Whoop -configuration Debug \
-          -showBuildSettings 2>/dev/null \
-        | awk -F' = ' '/ BUILT_PRODUCTS_DIR = /{print $2; exit}') || true
-  if [ -n "${DIR:-}" ] && [ -d "$DIR/Whoop.app" ]; then
-    APP="$DIR/Whoop.app"
-  fi
+  for configuration in Release Debug; do
+    dir=$(xcodebuild -project Whoop.xcodeproj -scheme Whoop \
+            -configuration "$configuration" -showBuildSettings 2>/dev/null \
+          | awk -F' = ' '/ BUILT_PRODUCTS_DIR = /{print $2; exit}') || true
+    [ -n "${dir:-}" ] && consider "$dir/Whoop.app"
+  done
 fi
 
-# Fall back to searching DerivedData, for when the project has not been
-# generated yet but an earlier build is still on disk.
-if [ -z "$APP" ]; then
-  APP=$(find "$HOME/Library/Developer/Xcode/DerivedData" \
-          -type d -name Whoop.app -path '*/Build/Products/*' 2>/dev/null | head -1)
-fi
+# Failing that, search DerivedData, for when the project has not been generated
+# yet but an earlier build is still on disk.
+#
+# Index.noindex is excluded deliberately. Xcode's indexer writes its own
+# Whoop.app there as a by-product of parsing the code: it is not built to run,
+# and it is routinely newer than the real build, so anything picking the first
+# or the most recent match without this finds the wrong one.
+while IFS= read -r found; do
+  consider "$found"
+done <<EOF
+$(find "$HOME/Library/Developer/Xcode/DerivedData" -type d -name Whoop.app \
+     -path '*/Build/Products/*' ! -path '*/Index.noindex/*' 2>/dev/null)
+EOF
 
 if [ -z "$APP" ]; then
   echo "No built Whoop.app found." >&2
