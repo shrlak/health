@@ -182,14 +182,28 @@ extension Summary {
         return durationText(minutes)
     }
 
-    var sleepNeedText: String { sleepNeedMin.map(durationText) ?? "—" }
 
-    /// How much of the night's need was actually slept, 0…1, for the large
-    /// layout's meter. Capped at 1: sleeping past the need fills the bar
-    /// rather than overflowing it.
+    /// How much of the night's need was actually slept, 0…1. Capped at 1:
+    /// sleeping past the need fills the ring rather than overflowing it.
     var sleepFraction: Double? {
         guard let sleepMin, let need = sleepNeedMin, need > 0 else { return nil }
         return min(max(sleepMin / need, 0), 1)
+    }
+
+    /// What the sleep ring draws, and the number written inside it.
+    ///
+    /// Whoop's own sleep performance when it has scored one, since that is the
+    /// "% of need" the app itself shows, and the plain ratio of slept to needed
+    /// otherwise. One source for both the arc and the figure: drawing the arc
+    /// from one and printing the other put a 67% ring under a 72% label.
+    var sleepPercentFraction: Double? {
+        if let sleepPerformance { return min(max(sleepPerformance / 100, 0), 1) }
+        return sleepFraction
+    }
+
+    var sleepPercentText: String {
+        guard let fraction = sleepPercentFraction else { return "—" }
+        return "\(Int((fraction * 100).rounded()))%"
     }
 
     /// 0…1 like `sleepFraction` and `strainFraction`: nil rather than zero when
@@ -208,20 +222,41 @@ extension Summary {
         return min(max(strain / 21, 0), 1)
     }
 
-    /// Calories have no ceiling of their own, so the ring is drawn against the
-    /// highest day in the window — "today against your hardest recent day".
-    /// Nil whenever there is no high to compare to, which keeps the ring empty
-    /// rather than inventing a full one.
-    var caloriesFraction: Double? {
-        guard let calories, let high = TrendStats(caloriesTrendPoints)?.high, high > 0 else { return nil }
-        return min(max(calories / high, 0), 1)
+    /// The previous calendar day's calories, when that day has a reading.
+    ///
+    /// Not simply the point before the last: a gap in the window would make
+    /// what the ring calls "yesterday" really some earlier day. Subtracting a
+    /// flat 86,400s is safe because the days are keyed in UTC, where there is
+    /// no hour to lose to daylight saving.
+    var caloriesYesterday: Double? {
+        guard let day else { return nil }
+        let parser = DateFormatter()
+        parser.dateFormat = "yyyy-MM-dd"
+        parser.timeZone = TimeZone(secondsFromGMT: 0)
+        guard let date = parser.date(from: day) else { return nil }
+        let key = parser.string(from: date.addingTimeInterval(-86_400))
+        return caloriesTrendPoints.first { $0.day == key }?.value
     }
 
-    /// "of 2,890 high", the ceiling the calories ring is drawn against.
-    var caloriesCeilingText: String? {
-        guard let high = TrendStats(caloriesTrendPoints)?.high, high > 0 else { return nil }
-        return "of \(Int(high.rounded())) high"
+    /// Today's burn against the day before. Full at yesterday's figure and
+    /// beyond it, so the ring reads as "as much as yesterday" rather than
+    /// against a ceiling the day never had.
+    var caloriesFraction: Double? {
+        guard let calories, let yesterday = caloriesYesterday, yesterday > 0 else { return nil }
+        return min(max(calories / yesterday, 0), 1)
     }
+
+    /// "↑312 vs yesterday", or nothing when yesterday was not scored.
+    var caloriesVsYesterdayText: String? {
+        guard let calories, let yesterday = caloriesYesterday else { return nil }
+        let diff = Int((calories - yesterday).rounded())
+        if diff == 0 { return "same as yesterday" }
+        return diff > 0 ? "↑\(diff) vs yesterday" : "↓\(-diff) vs yesterday"
+    }
+
+    /// The whole number of kilocalories, for a ring that shows the total and
+    /// leaves the unit to its title.
+    var caloriesValueText: String { calories.map { "\(Int($0.rounded()))" } ?? "—" }
 
     /// 0…1 for the readiness meter, from the same 0…10 score as the badge.
     var readinessFraction: Double? {
@@ -332,7 +367,6 @@ extension Summary {
     var hrvWeek: TrendStats? { TrendStats(hrvTrendPoints, days: 7) }
     var restingHrWeek: TrendStats? { TrendStats(restingHrTrendPoints, days: 7) }
     var sleepWeek: TrendStats? { TrendStats(sleepTrendPoints, days: 7) }
-    var caloriesWeek: TrendStats? { TrendStats(caloriesTrendPoints, days: 7) }
     var avgHrWeek: TrendStats? { TrendStats(avgHrTrendPoints, days: 7) }
     var maxHrWeek: TrendStats? { TrendStats(maxHrTrendPoints, days: 7) }
 

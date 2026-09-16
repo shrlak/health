@@ -205,9 +205,9 @@ large
 ┌────────────────────────────────┐
 │ WHOOP              Sep 15 (Tue)│
 │    ◜◝       ◜◝       ◜◝        │
-│   ◟92%◞    ◟5h20◞   ◟6.7◞      │
+│   ◟92%◞     ◟72%◞    ◟6.7◞     │
 │  RECOVERY   SLEEP    STRAIN    │
-│   GO 8.1   of 7h57  2009 kcal  │
+│   GO 8.1    5h 20m   2009 kcal │
 │ HEART RATE  42 rest·65·122 peak│
 │ ▰▰▰▰▰●▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰  │
 │ ┌────────────────────────────┐ │
@@ -229,8 +229,10 @@ Three things on it are drawn rather than written:
 - **The rings.** Recovery, sleep and strain are the three figures with a
   ceiling — a hundred percent, the need Whoop set for the night, a maxed-out
   day at 21 — so they get the same shape and can be compared without reading
-  the numbers. Each caption carries the figure that belongs with it: the
-  readiness score, the need, the calories.
+  the numbers. Each shows its percentage in the middle and carries the figure
+  that belongs with it underneath: the readiness score, the hours actually
+  slept, the calories. The sleep ring draws Whoop's own sleep performance when
+  it has scored one, so the arc and the number inside it are the same figure.
 - **The heart-rate range.** Resting, average and peak as one track rather than
   three numbers, with the average marked where it actually fell between the
   other two. Three figures in a column say what they were; the track says how
