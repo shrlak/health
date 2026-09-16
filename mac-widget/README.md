@@ -113,16 +113,26 @@ The scheme control at the top should read **Whoop › My Mac**. Press **⌘R**.
 The Whoop window opens and shows your recovery, strain and sleep. If it shows
 an error instead, that is the diagnostic — see the troubleshooting list below.
 
-### 7. Move it to Applications
+### 7. Install it
 
-Xcode builds into DerivedData, which is a scratch directory. A widget served
-from there stops working the moment that directory is cleaned, so move the app
-somewhere stable:
+Xcode builds into DerivedData, a scratch directory whose name carries a hash
+and which gets cleaned. macOS serves a widget from the installed copy of the
+app, so a build left in there is a widget showing yesterday's code until the
+day that directory is emptied and it stops showing anything.
 
-1. In the left sidebar, open the **Products** group and right-click
-   **Whoop.app** → **Show in Finder**.
-2. Drag it into **/Applications**.
-3. Launch it from there once.
+```sh
+./install.sh
+```
+
+It asks Xcode where the build went, copies it to `/Applications/Whoop.app`,
+and launches it once — which is what registers the widget extension. Run it
+after every **⌘R** you want the desktop to pick up.
+
+If you would rather do it by hand: in Xcode's left sidebar, open the
+**Products** group, right-click **Whoop.app** → **Show in Finder**, drag it
+into **/Applications**, and launch it from there once. The Products group is
+near the bottom of the Project navigator and is easy to miss; `install.sh`
+exists because finding that build by hand is the step people get stuck on.
 
 ### 8. Add the widget
 
@@ -148,11 +158,12 @@ in Notification Center and a large one on the desktop read the same endpoint.
 | The large size shows fewer trend rows than the screenshot | Expected. It fits itself to the canvas your Mac gives it; see [Why the large size sometimes shows fewer trend rows](#why-the-large-size-sometimes-shows-fewer-trend-rows). |
 | A figure shows a dash, or the calories ring is empty | The app is newer than the deployed `whoop-widget` function, so a field it wants is not in the payload yet. Redeploy it (`supabase functions deploy whoop-widget --no-verify-jwt`) and the next refresh fills it in. Every added field decodes as optional, so an old backend costs you that figure and nothing else. |
 | Widget is blank or stuck on placeholder text | Open the Whoop app. It fetches the same endpoint the same way and has room to say what failed. |
-| **Whoop** is not in the Edit Widgets list | The app has not been run from a stable location. Do step 7. |
+| **Whoop** is not in the Edit Widgets list | The app has not been run from `/Applications`. Run `./install.sh`. |
+| You cannot find `Whoop.app` to copy | It is in DerivedData under a hashed directory name. Run `./install.sh`, which asks Xcode where the build went rather than making you look for it. |
 | The number looks stale | WidgetKit budgets refreshes. Open the app and press **Refresh**, which reloads every timeline. |
 | Numbers missing, or cut off at an edge | A build from before the layouts owned their margins. `git pull`, then rebuild with **⌘R** — the widget reloads once the new app has launched. |
 | The stats are a blank slab, or numbers are missing, until you click the desktop | macOS renders desktop widgets without colour while another window is in front. See [When the desktop is not in front](#when-the-desktop-is-not-in-front). |
-| A rebuild changes nothing on the desktop | Xcode builds into DerivedData, but the widget is served from `/Applications/Whoop.app`. Redo step 7 so the copy there is the new one, then check `pluginkit -mAvvv -p com.apple.widgetkit-extension \| grep -A3 shrlak` shows a fresh `Timestamp`. |
+| A rebuild changes nothing on the desktop | Xcode builds into DerivedData, but the widget is served from `/Applications/Whoop.app`. Run `./install.sh` so the copy there is the new one, then check `pluginkit -mAvvv -p com.apple.widgetkit-extension \| grep -A3 shrlak` shows a fresh `Timestamp`. |
 | A wall of `com.apple.linkd.autoShortcut` errors in the console | Not a failure, and it only appears once the app has launched. Every sandboxed app tries to register with the Shortcuts service at startup and the sandbox denies it; this one uses no App Intents, so nothing is lost. Filter the Xcode console by `Whoop` to hide it. |
 
 ## Where the token lives
@@ -292,6 +303,8 @@ account with nothing synced yet, or no network.
 | `Shared/Views.swift` | The rings, heart-rate track, sparklines and bars, shared by the app and the widget. |
 | `Widget/WhoopWidget.swift` | The timeline provider and the widget layouts, one per size. |
 | `App/WhoopApp.swift` | The container app, which is also the diagnostic window. It draws the same figures at a larger type scale. |
+| `setup.sh` | Writes the token into `Shared/Config.swift` and generates the Xcode project. |
+| `install.sh` | Copies the built app from DerivedData to `/Applications`, where macOS serves the widget from. |
 | `Config.example.swift` | Template for `Shared/Config.swift`. |
 
 A generated `.xcodeproj` is a large file that conflicts on every edit, so it is

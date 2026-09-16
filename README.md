@@ -339,7 +339,8 @@ the one drawn.
 
 The source is in [`mac-widget/`](mac-widget/). macOS only offers widgets that
 ship inside an installed app, so it is built once on the machine that runs it:
-`brew install xcodegen`, then `./setup.sh`, then press Run in Xcode.
+`brew install xcodegen`, then `./setup.sh`, then press Run in Xcode, then
+`./install.sh` to put the build where macOS serves widgets from.
 
 It reads one endpoint with a token scoped to reading only. A widget is woken by
 the system long after any login session would have expired, so it cannot hold
