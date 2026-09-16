@@ -296,35 +296,40 @@ small                          medium
 
 large
 ┌────────────────────────────────┐
-│ WHOOP               Sun 14 Sep │
-│  ◜◝   RECOVERY ↑6 vs recent    │
-│ ◟  ◞  Ready                    │
-│  82%  READINESS         7.8/10 │
-│       ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░     │
+│ WHOOP               Tue 15 Sep │
+│    ◜◝       ◜◝       ◜◝        │
+│   ◟92%◞    ◟5h20◞   ◟6.7◞      │
+│  RECOVERY   SLEEP    STRAIN    │
+│   GO 8.1   of 7h57  2009 kcal  │
+│ HEART RATE  42 rest·65·122 peak│
+│ ▰▰▰▰▰●▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰  │
 │ ┌────────────────────────────┐ │
-│ │ STRAIN 5.0   │ SLEEP 9h32  │ │
-│ │ 1842 kcal    │ 92% · 88%   │ │
-│ │ HRV 84 ms ↑3 │ RHR 45 ↓1   │ │
-│ │ AVG HR 64    │ PEAK HR 141 │ │
+│ │ HRV 112 ms ↑44 │ RHR 42 ↓5 │ │
+│ │ 7d avg 71 ms   │ 7d avg 47 │ │
 │ └────────────────────────────┘ │
-│ SLEEP VS NEED  9h32 of 8h37    │
-│ DAY STRAIN     5.0 of 21       │
 │ LAST 7 DAYS ────────────────── │
-│ RECOVERY 82% ╱╲_╱ avg 62% 41–88│
-│ STRAIN  5.0  ╱╲_╱ avg 9.4      │
-│ SLEEP   9h32 ╱╲_╱ avg 7h10     │
-│ Updated 08:42 · 30 days logged │
+│ RECOVERY 92% ╱╲_╱ avg 82%      │
+│ STRAIN  6.7  ▁▃▅▂▇▄▃ avg 7.3   │
+│ HRV     112  ╱╲_╱ avg 71 ms    │
+│ Updated 23:19 · 30 days logged │
 └────────────────────────────────┘
 ```
 
-The large size adds what the small ones have no room for: the readiness score
-as a meter rather than a badge, calories and the average and peak heart rate
-behind the strain number, the night measured against the need Whoop calculated
-for it, the day's strain against a maxed-out one, and a labelled week of every
-metric — each sparkline captioned with its own average and range, so the shape
-has a scale. A widget cannot scroll and clips whatever does not fit, so the
-large layout offers itself at several densities and the richest one that fits
-the canvas is the one drawn.
+The large size shows the day rather than listing it. The three figures with a
+ceiling become three rings of the same shape, so they can be compared at a
+glance: recovery out of a hundred, the night against the need Whoop set for it,
+the day's strain against a maxed-out one — each captioned with the figure that
+belongs with it, the readiness score, the need, the calories. Below them the
+day's heart rate is a range rather than three numbers, with the average marked
+where it actually fell between the resting rate and the peak. Then HRV and
+resting heart rate, the two with no ceiling to draw them against, each shown
+against its own week. Then the trends, strain as columns because a day's strain
+is a separate effort rather than a level that drifts, the rest as lines, every
+one captioned with its average and range so the shape has a scale.
+
+A widget cannot scroll and clips whatever does not fit, so the large layout
+offers itself at several densities and the richest one that fits the canvas is
+the one drawn.
 
 The source is in [`mac-widget/`](mac-widget/). macOS only offers widgets that
 ship inside an installed app, so it is built once on the machine that runs it:

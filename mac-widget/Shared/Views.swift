@@ -467,6 +467,10 @@ struct MeterBar: View {
 /// now, the shape of the last week, and the average and range that shape is
 /// drawn against. A sparkline on its own has no scale; this gives it one.
 struct TrendRow: View {
+    /// A line for a metric that drifts, bars for one that is a separate effort
+    /// each day. See `BarChart`.
+    enum Style { case line, bars }
+
     @Environment(\.widgetRenderingMode) private var renderingMode
     let label: String
     let value: String
@@ -476,6 +480,7 @@ struct TrendRow: View {
     /// "avg 62% · 41–88%", built by the caller since each metric rounds and
     /// suffixes differently.
     var detail: String? = nil
+    var style: Style = .line
     var labelWidth: CGFloat = 58
     var detailWidth: CGFloat = 92
     /// The large layout drops this a couple of points when it has to fit more
@@ -511,10 +516,10 @@ struct TrendRow: View {
             .frame(width: labelWidth, alignment: .leading)
 
             // A single point has no line to draw, so the row keeps its place
-            // in the stack and shows the figures without a shape.
-            if points.count > 1 {
-                Sparkline(points: points, color: color)
-                    .frame(maxWidth: .infinity)
+            // in the stack and shows the figures without a shape. Bars survive
+            // a lone reading, and draw it.
+            if points.count > 1 || (style == .bars && !points.isEmpty) {
+                chart.frame(maxWidth: .infinity)
             } else {
                 Spacer(minLength: 0)
             }
@@ -529,6 +534,14 @@ struct TrendRow: View {
             }
         }
         .frame(height: height)
+    }
+
+    @ViewBuilder
+    private var chart: some View {
+        switch style {
+        case .line: Sparkline(points: points, color: color)
+        case .bars: BarChart(points: points, color: color)
+        }
     }
 }
 
@@ -547,6 +560,198 @@ struct SectionHeader: View {
             Rectangle()
                 .fill(Color.white.opacity(renderingMode.isMonochrome ? 0.2 : 0.12))
                 .frame(height: 1)
+        }
+    }
+}
+
+/// A ring for any figure with a ceiling, captioned with what it is and what
+/// the ceiling was. `RecoveryRing` stays its own view: it is the headline, so
+/// it is drawn larger and keeps the health-band glow, where these are a set
+/// meant to be read together at a glance.
+struct RingGauge: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    let title: String
+    let value: String
+    var caption: String? = nil
+    /// 0…1, or nil when the figure has not been scored — an empty ring rather
+    /// than a full one at zero.
+    let fraction: Double?
+    let color: Color
+    var diameter: CGFloat = 54
+    var lineWidth: CGFloat = 6
+    var valueSize: CGFloat = 13
+
+    private var mono: Bool { renderingMode.isMonochrome }
+    private var arc: Color { mono ? .white : color }
+
+    var body: some View {
+        VStack(spacing: 3) {
+            ZStack {
+                Circle()
+                    .strokeBorder(arc.opacity(mono ? 0.28 : 0.16), lineWidth: lineWidth)
+
+                if let fraction {
+                    trimmed(fraction)
+                        .rotationEffect(.degrees(-90))
+                }
+
+                Text(value)
+                    .font(.system(size: valueSize, weight: .semibold, design: .rounded))
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, lineWidth)
+            }
+            .frame(width: diameter, height: diameter)
+
+            Text(title)
+                .font(.system(size: 8, weight: mono ? .semibold : .medium))
+                .tracking(0.9)
+                .foregroundStyle(mono ? Color.white.opacity(0.75) : color.opacity(0.9))
+
+            if let caption {
+                Text(caption)
+                    .font(.system(size: 7.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(mono ? 0.6 : 0.5))
+            }
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+    }
+
+    @ViewBuilder
+    private func trimmed(_ fraction: Double) -> some View {
+        let stroked = Circle()
+            .inset(by: lineWidth / 2)
+            .trim(from: 0, to: max(min(fraction, 1), 0))
+            .stroke(arc, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+
+        if mono {
+            stroked
+        } else {
+            stroked.shadow(color: color.opacity(0.7), radius: lineWidth * 0.4)
+        }
+    }
+}
+
+/// The day's heart rate as a range rather than three separate numbers: a track
+/// running from the resting rate to the peak, with the average marked where it
+/// actually fell between them. Three figures in a column say what they were;
+/// this says how hard the day was.
+struct HeartRateRange: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    let resting: Double?
+    let average: Double?
+    let peak: Double?
+    var trackHeight: CGFloat = 7
+
+    private var mono: Bool { renderingMode.isMonochrome }
+
+    /// Where the average sits between resting and peak, 0…1. Nil whenever the
+    /// three do not make a range to place it in — a missing figure, or a peak
+    /// that is not above the resting rate.
+    private var position: Double? {
+        guard let resting, let peak, let average, peak > resting else { return nil }
+        return min(max((average - resting) / (peak - resting), 0), 1)
+    }
+
+    /// Resting through to peak, so the track itself says which end is which:
+    /// the resting accent on the left, strain's orange through the middle, and
+    /// HRV's red at the top of the range.
+    private var gradient: LinearGradient {
+        LinearGradient(
+            colors: mono
+                ? [.white.opacity(0.3), .white.opacity(0.7)]
+                : [MetricPalette.restingHR.opacity(0.75),
+                   MetricPalette.strain.opacity(0.75),
+                   MetricPalette.hrv.opacity(0.75)],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                Text("HEART RATE")
+                    .font(.system(size: 8.5, weight: mono ? .semibold : .medium))
+                    .tracking(1.0)
+                    .foregroundStyle(mono ? Color.white.opacity(0.75)
+                                          : MetricPalette.restingHR.opacity(0.9))
+                Spacer(minLength: 4)
+                Text(label)
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundStyle(.white.opacity(mono ? 0.7 : 0.55))
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(gradient)
+
+                    if let position {
+                        // The marker is inset by its own width at both ends so
+                        // an average sitting on the resting rate or the peak
+                        // stays inside the track instead of half outside it.
+                        let span = max(geo.size.width - trackHeight * 2, 0)
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: trackHeight * 1.6, height: trackHeight * 1.6)
+                            .overlay(Circle().strokeBorder(Color.black.opacity(0.35), lineWidth: 1))
+                            .offset(x: trackHeight * 0.2 + span * CGFloat(position))
+                    }
+                }
+            }
+            .frame(height: trackHeight)
+        }
+    }
+
+    /// "42 rest · 65 avg · 122 peak", trimmed to whichever exist.
+    private var label: String {
+        var parts: [String] = []
+        if let resting { parts.append("\(Int(resting.rounded())) rest") }
+        if let average { parts.append("\(Int(average.rounded())) avg") }
+        if let peak { parts.append("\(Int(peak.rounded())) peak") }
+        return parts.joined(separator: " · ")
+    }
+}
+
+/// A trend as columns rather than a line. A line reads as one continuous thing
+/// and suits a metric that drifts; a day's strain is a separate effort each
+/// time, and bars say that where a line implies a slope between them.
+struct BarChart: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    let points: [TrendPoint]
+    let color: Color
+
+    private var mono: Bool { renderingMode.isMonochrome }
+
+    var body: some View {
+        GeometryReader { geo in
+            let values = points.map(\.value)
+            let high = values.max() ?? 1
+            // Against its own minimum a flat run would draw every bar at zero,
+            // so the floor is zero and the bars keep their proportions.
+            let span = high > 0 ? high : 1
+            let gap: CGFloat = 2
+            let width = values.isEmpty ? 0
+                : max((geo.size.width - gap * CGFloat(values.count - 1)) / CGFloat(values.count), 1)
+
+            HStack(alignment: .bottom, spacing: gap) {
+                ForEach(Array(values.enumerated()), id: \.offset) { index, value in
+                    let height = max(geo.size.height * CGFloat(value / span), 2)
+                    // The newest column is the one the numbers above describe,
+                    // so it is drawn solid and the rest step back.
+                    let newest = index == values.count - 1
+                    RoundedRectangle(cornerRadius: min(width / 2, 2), style: .continuous)
+                        .fill(mono
+                              ? Color.white.opacity(newest ? 0.9 : 0.45)
+                              : color.opacity(newest ? 1 : 0.5))
+                        .frame(width: width, height: height)
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height, alignment: .bottomLeading)
         }
     }
 }
