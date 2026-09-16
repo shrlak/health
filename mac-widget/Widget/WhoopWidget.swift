@@ -178,11 +178,9 @@ private struct TrendSpec: Identifiable {
     let id: String
     let label: String
     let value: String
-    let points: [TrendPoint]
     let color: Color
     let delta: TrendDelta?
     let detail: String
-    let style: TrendRow.Style
 }
 
 /// The widget, drawn as the app window draws it: the same sections in the same
@@ -190,10 +188,9 @@ private struct TrendSpec: Identifiable {
 ///
 /// What differs is the room. The window is 780pt wide with its type scaled up
 /// and a scroll view under it; this is roughly 329x345 and clips whatever does
-/// not fit. So the sections are the same and the budget is not: the trend
-/// captions are the average alone rather than the average and the range, and
-/// the whole thing is offered at a ladder of densities that `ViewThatFits`
-/// picks from — the rings in every one, the heart rows first to go.
+/// not fit. So the sections are the same and the budget is not: the whole
+/// thing is offered at a ladder of densities that `ViewThatFits` picks
+/// from — the rings in every one, the heart rows first to go.
 struct LargeView: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
     let summary: Summary
@@ -318,9 +315,8 @@ struct LargeView: View {
 
     private func row(_ spec: TrendSpec, height: CGFloat) -> some View {
         TrendRow(
-            label: spec.label, value: spec.value, points: spec.points,
-            color: spec.color, delta: spec.delta, detail: spec.detail,
-            style: spec.style, detailWidth: 58, height: height
+            label: spec.label, value: spec.value, color: spec.color,
+            delta: spec.delta, detail: spec.detail, height: height
         )
     }
 
@@ -333,28 +329,22 @@ struct LargeView: View {
         if let week = summary.recoveryWeek {
             specs.append(TrendSpec(
                 id: "recovery", label: "RECOVERY", value: summary.recoveryText,
-                points: Array(summary.recoveryTrend.suffix(7)),
                 color: summary.recoveryColor, delta: summary.recoveryDelta,
-                detail: "avg \(week.averageText(unit: "%"))", style: .line
+                detail: "avg \(week.averageText(unit: "%")) · \(week.rangeText(unit: "%"))"
             ))
         }
         if let week = summary.strainWeek {
             specs.append(TrendSpec(
                 id: "strain", label: "STRAIN", value: summary.strainText,
-                points: Array(summary.strainTrend.suffix(7)),
                 color: MetricPalette.strain, delta: summary.strainDelta,
-                detail: "avg \(week.averageText(decimals: 1))",
-                // A day's strain is a separate effort, not a level that drifts
-                // between readings, so it is the one drawn as columns.
-                style: .bars
+                detail: "avg \(week.averageText(decimals: 1)) · \(week.rangeText(decimals: 1))"
             ))
         }
         if let week = summary.sleepWeek {
             specs.append(TrendSpec(
                 id: "sleep", label: "SLEEP", value: summary.sleepText,
-                points: Array(summary.sleepTrendPoints.suffix(7)),
                 color: MetricPalette.sleep, delta: summary.sleepDelta,
-                detail: "avg \(durationText(week.average))", style: .line
+                detail: "avg \(durationText(week.average)) · \(durationText(week.low))–\(durationText(week.high))"
             ))
         }
         return specs
@@ -367,33 +357,29 @@ struct LargeView: View {
         if let week = summary.hrvWeek {
             specs.append(TrendSpec(
                 id: "hrv", label: "HRV", value: summary.hrvText,
-                points: Array(summary.hrvTrendPoints.suffix(7)),
                 color: MetricPalette.hrv, delta: summary.hrvDelta,
-                detail: "avg \(week.averageText(unit: " ms"))", style: .line
+                detail: "avg \(week.averageText(unit: " ms")) · \(week.rangeText())"
             ))
         }
         if let week = summary.restingHrWeek {
             specs.append(TrendSpec(
                 id: "restingHr", label: "RESTING HR", value: summary.restingHrText,
-                points: Array(summary.restingHrTrendPoints.suffix(7)),
                 color: MetricPalette.restingHR, delta: summary.restingHrDelta,
-                detail: "avg \(week.averageText(unit: " bpm"))", style: .line
+                detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
             ))
         }
         if let week = summary.avgHrWeek {
             specs.append(TrendSpec(
                 id: "avgHr", label: "AVG HR", value: summary.avgHrText,
-                points: Array(summary.avgHrTrendPoints.suffix(7)),
                 color: GlassPalette.accentStart, delta: summary.avgHrDelta,
-                detail: "avg \(week.averageText(unit: " bpm"))", style: .line
+                detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
             ))
         }
         if let week = summary.maxHrWeek {
             specs.append(TrendSpec(
                 id: "maxHr", label: "PEAK HR", value: summary.maxHrText,
-                points: Array(summary.maxHrTrendPoints.suffix(7)),
                 color: GlassPalette.accentEnd, delta: summary.maxHrDelta,
-                detail: "avg \(week.averageText(unit: " bpm"))", style: .line
+                detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
             ))
         }
         return specs

@@ -186,7 +186,6 @@ struct ContentView: View {
                 if let week = summary.recoveryWeek {
                     TrendRow(
                         label: "RECOVERY", value: summary.recoveryText,
-                        points: Array(summary.recoveryTrend.suffix(7)),
                         color: summary.recoveryColor, delta: summary.recoveryDelta,
                         detail: "avg \(week.averageText(unit: "%")) · \(week.rangeText(unit: "%"))"
                     )
@@ -194,16 +193,13 @@ struct ContentView: View {
                 if let week = summary.strainWeek {
                     TrendRow(
                         label: "STRAIN", value: summary.strainText,
-                        points: Array(summary.strainTrend.suffix(7)),
                         color: MetricPalette.strain, delta: summary.strainDelta,
-                        detail: "avg \(week.averageText(decimals: 1)) · \(week.rangeText(decimals: 1))",
-                        style: .bars
+                        detail: "avg \(week.averageText(decimals: 1)) · \(week.rangeText(decimals: 1))"
                     )
                 }
                 if let week = summary.sleepWeek {
                     TrendRow(
                         label: "SLEEP", value: summary.sleepText,
-                        points: Array(summary.sleepTrendPoints.suffix(7)),
                         color: MetricPalette.sleep, delta: summary.sleepDelta,
                         detail: "avg \(durationText(week.average)) · \(durationText(week.low))–\(durationText(week.high))"
                     )
@@ -232,7 +228,6 @@ struct ContentView: View {
                 if let week = summary.hrvWeek {
                     TrendRow(
                         label: "HRV", value: summary.hrvText,
-                        points: Array(summary.hrvTrendPoints.suffix(7)),
                         color: MetricPalette.hrv, delta: summary.hrvDelta,
                         detail: "avg \(week.averageText(unit: " ms")) · \(week.rangeText())"
                     )
@@ -240,7 +235,6 @@ struct ContentView: View {
                 if let week = summary.restingHrWeek {
                     TrendRow(
                         label: "RESTING HR", value: summary.restingHrText,
-                        points: Array(summary.restingHrTrendPoints.suffix(7)),
                         color: MetricPalette.restingHR, delta: summary.restingHrDelta,
                         detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
                     )
@@ -248,7 +242,6 @@ struct ContentView: View {
                 if let week = summary.avgHrWeek {
                     TrendRow(
                         label: "AVG HR", value: summary.avgHrText,
-                        points: Array(summary.avgHrTrendPoints.suffix(7)),
                         color: GlassPalette.accentStart, delta: summary.avgHrDelta,
                         detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
                     )
@@ -256,7 +249,6 @@ struct ContentView: View {
                 if let week = summary.maxHrWeek {
                     TrendRow(
                         label: "PEAK HR", value: summary.maxHrText,
-                        points: Array(summary.maxHrTrendPoints.suffix(7)),
                         color: GlassPalette.accentEnd, delta: summary.maxHrDelta,
                         detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
                     )

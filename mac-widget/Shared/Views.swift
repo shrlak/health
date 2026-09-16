@@ -420,30 +420,23 @@ struct Unavailable: View {
 }
 
 /// One labelled row of a trend section: what the metric is, where it stands
-/// now, the shape of the last week, and the average and range that shape is
-/// drawn against. A sparkline on its own has no scale; this gives it one.
+/// now, and the average and range the last week worked out to, as figures
+/// rather than a shape.
 struct TrendRow: View {
-    /// A line for a metric that drifts, bars for one that is a separate effort
-    /// each day. See `BarChart`.
-    enum Style { case line, bars }
-
     @Environment(\.widgetRenderingMode) private var renderingMode
     @Environment(\.glassTextScale) private var textScale
     let label: String
     let value: String
-    let points: [TrendPoint]
     let color: Color
     var delta: TrendDelta? = nil
     /// "avg 62% · 41–88%", built by the caller since each metric rounds and
     /// suffixes differently.
     var detail: String? = nil
-    var style: Style = .line
     /// Wide enough for a value and its delta side by side. A duration is the
     /// case that sets it: "5h 20m ↓1h 52m" is half as wide again as "92% ↑37",
     /// and the column is shared, so it is sized for the longest row rather
     /// than truncating that one.
     var labelWidth: CGFloat = 76
-    var detailWidth: CGFloat = 92
     /// The large layout drops this a couple of points when it has to fit more
     /// rows into the same canvas; see `LargeView`.
     var height: CGFloat = 24
@@ -476,35 +469,20 @@ struct TrendRow: View {
             .minimumScaleFactor(0.7)
             .frame(width: labelWidth * textScale, alignment: .leading)
 
-            // A single point has no line to draw, so the row keeps its place
-            // in the stack and shows the figures without a shape. Bars survive
-            // a lone reading, and draw it.
-            if points.count > 1 || (style == .bars && !points.isEmpty) {
-                chart.frame(maxWidth: .infinity)
-            } else {
-                Spacer(minLength: 0)
-            }
-
             if let detail {
                 Text(detail)
                     .font(.system(size: 7.5 * textScale, weight: .medium))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .foregroundStyle(Color.white.opacity(mono ? 0.6 : 0.5))
-                    .frame(width: detailWidth * textScale, alignment: .trailing)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            } else {
+                Spacer(minLength: 0)
             }
         }
         // The columns and the row grow with the type, or larger text in the
         // same box is just text with less room to be in.
         .frame(height: height * textScale)
-    }
-
-    @ViewBuilder
-    private var chart: some View {
-        switch style {
-        case .line: Sparkline(points: points, color: color)
-        case .bars: BarChart(points: points, color: color)
-        }
     }
 }
 
@@ -683,41 +661,3 @@ struct HeartRateRange: View {
     }
 }
 
-/// A trend as columns rather than a line. A line reads as one continuous thing
-/// and suits a metric that drifts; a day's strain is a separate effort each
-/// time, and bars say that where a line implies a slope between them.
-struct BarChart: View {
-    @Environment(\.widgetRenderingMode) private var renderingMode
-    let points: [TrendPoint]
-    let color: Color
-
-    private var mono: Bool { renderingMode.isMonochrome }
-
-    var body: some View {
-        GeometryReader { geo in
-            let values = points.map(\.value)
-            let high = values.max() ?? 1
-            // Against its own minimum a flat run would draw every bar at zero,
-            // so the floor is zero and the bars keep their proportions.
-            let span = high > 0 ? high : 1
-            let gap: CGFloat = 2
-            let width = values.isEmpty ? 0
-                : max((geo.size.width - gap * CGFloat(values.count - 1)) / CGFloat(values.count), 1)
-
-            HStack(alignment: .bottom, spacing: gap) {
-                ForEach(Array(values.enumerated()), id: \.offset) { index, value in
-                    let height = max(geo.size.height * CGFloat(value / span), 2)
-                    // The newest column is the one the numbers above describe,
-                    // so it is drawn solid and the rest step back.
-                    let newest = index == values.count - 1
-                    RoundedRectangle(cornerRadius: min(width / 2, 2), style: .continuous)
-                        .fill(mono
-                              ? Color.white.opacity(newest ? 0.9 : 0.45)
-                              : color.opacity(newest ? 1 : 0.5))
-                        .frame(width: width, height: height)
-                }
-            }
-            .frame(width: geo.size.width, height: geo.size.height, alignment: .bottomLeading)
-        }
-    }
-}
