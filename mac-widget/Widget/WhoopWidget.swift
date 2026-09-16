@@ -274,13 +274,13 @@ struct LargeView: View {
 
             RingGauge(
                 title: "SLEEP",
-                value: summary.sleepText,
-                caption: summary.sleepNeedMin != nil ? "of \(summary.sleepNeedText)" : nil,
-                fraction: summary.sleepFraction,
+                value: summary.sleepPercentText,
+                caption: summary.sleepMin != nil ? summary.sleepText : nil,
+                fraction: summary.sleepPercentFraction,
                 color: MetricPalette.sleep,
                 diameter: diameter,
                 lineWidth: diameter * 0.12,
-                valueSize: diameter * 0.21
+                valueSize: diameter * 0.26
             )
             .frame(maxWidth: .infinity)
 

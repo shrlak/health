@@ -146,11 +146,11 @@ struct ContentView: View {
 
             RingGauge(
                 title: "SLEEP",
-                value: summary.sleepText,
-                caption: summary.sleepNeedMin != nil ? "of \(summary.sleepNeedText)" : nil,
-                fraction: summary.sleepFraction,
+                value: summary.sleepPercentText,
+                caption: summary.sleepMin != nil ? summary.sleepText : nil,
+                fraction: summary.sleepPercentFraction,
                 color: MetricPalette.sleep,
-                diameter: 76, lineWidth: 9, valueSize: 16
+                diameter: 76, lineWidth: 9, valueSize: 20
             )
             .frame(maxWidth: .infinity)
 
@@ -166,8 +166,8 @@ struct ContentView: View {
 
             RingGauge(
                 title: "CALORIES",
-                value: summary.calories.map { "\(Int($0.rounded()))" } ?? "—",
-                caption: summary.caloriesCeilingText ?? "kcal",
+                value: summary.caloriesValueText,
+                caption: summary.caloriesVsYesterdayText ?? "kcal",
                 fraction: summary.caloriesFraction,
                 color: GlassPalette.accentStart,
                 diameter: 76, lineWidth: 9, valueSize: 17

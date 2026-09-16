@@ -298,9 +298,9 @@ large
 ┌────────────────────────────────┐
 │ WHOOP              Sep 15 (Tue)│
 │    ◜◝       ◜◝       ◜◝        │
-│   ◟92%◞    ◟5h20◞   ◟6.7◞      │
+│   ◟92%◞     ◟72%◞    ◟6.7◞     │
 │  RECOVERY   SLEEP    STRAIN    │
-│   GO 8.1   of 7h57  2009 kcal  │
+│   GO 8.1    5h 20m   2009 kcal │
 │ HEART RATE  42 rest·65·122 peak│
 │ ▰▰▰▰▰●▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰  │
 │ ┌────────────────────────────┐ │
@@ -317,14 +317,15 @@ large
 
 The app window shows the same figures at a larger type scale, with everything
 that has a ceiling drawn as a ring — recovery, readiness, sleep against need,
-strain, and the day's calories against the hardest day in the window — and each
-heart metric shown with its number, how it moved, and a week of it.
+strain, and the day's calories against the day before — and each heart metric
+shown with its number, how it moved, and a week of it.
 
 The large size shows the day rather than listing it. The three figures with a
 ceiling become three rings of the same shape, so they can be compared at a
-glance: recovery out of a hundred, the night against the need Whoop set for it,
-the day's strain against a maxed-out one — each captioned with the figure that
-belongs with it, the readiness score, the need, the calories. Below them the
+glance: recovery out of a hundred, the night as a percentage of the need Whoop
+set for it, the day's strain against a maxed-out one — each captioned with the
+figure that belongs with it, the readiness score, the hours actually slept, the
+calories. Below them the
 day's heart rate is a range rather than three numbers, with the average marked
 where it actually fell between the resting rate and the peak. Then HRV and
 resting heart rate, the two with no ceiling to draw them against, each shown
