@@ -15,10 +15,19 @@ cd "$(dirname "$0")"
 # The newest real build wins, whichever configuration produced it. Both are
 # considered because the Run action's configuration is a per-scheme setting:
 # assuming Debug finds nothing on a project set to Release.
+#
+# Freshness is judged by the executable inside, not the .app directory itself:
+# rebuilding an app that is already on disk only rewrites files under
+# Contents/, which does not bump the bundle directory's own mtime, so
+# comparing that let a same-day Debug build outrank a just-relinked Release
+# one. The binary is rewritten by the linker on every build, Debug or
+# Release, so its mtime is the one that actually moves.
 APP=""
 consider() {
-  [ -d "$1" ] || return 0
-  if [ -z "$APP" ] || [ "$1" -nt "$APP" ]; then APP="$1"; fi
+  [ -f "$1/Contents/MacOS/Whoop" ] || return 0
+  if [ -z "$APP" ] || [ "$1/Contents/MacOS/Whoop" -nt "$APP/Contents/MacOS/Whoop" ]; then
+    APP="$1"
+  fi
 }
 
 # Ask Xcode where it put the build rather than guessing: the DerivedData
@@ -64,11 +73,22 @@ rm -rf /Applications/Whoop.app
 cp -R "$APP" /Applications/Whoop.app
 echo "Installed:  /Applications/Whoop.app"
 
+# chronod is what backs the Edit Widgets gallery, and it caches each widget's
+# declared sizes rather than reading them fresh every time the panel opens. A
+# build that changes which families a widget offers — such as cutting it down
+# to the large size only — otherwise keeps showing the old list until
+# whatever next restarts chronod on its own, which is not on any schedule
+# worth waiting for. Killing it is safe: launchd brings it straight back.
+killall chronod 2>/dev/null || true
+
 # Launching it once is what registers the widget extension with macOS.
 open /Applications/Whoop.app
 
 echo
 echo "Right-click the desktop → Edit Widgets → search Whoop, and drag out a size."
+echo "If Edit Widgets was already open, close and reopen it — it reads the gallery"
+echo "once rather than watching it live, so a copy open before this ran is still"
+echo "showing the old list."
 echo "If the desktop still shows the old layout, remove the placed widget and drop"
 echo "a fresh one, then check macOS took the new extension:"
 echo "  pluginkit -mAvvv -p com.apple.widgetkit-extension | grep -A3 shrlak"
