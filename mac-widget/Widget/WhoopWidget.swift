@@ -465,13 +465,21 @@ struct WhoopWidget: Widget {
             WhoopWidgetView(entry: entry)
         }
         .configurationDisplayName("Whoop")
-        .description("Recovery, strain and sleep from your Whoop. "
-                     + "The large size adds heart rate, sleep against need, and a week of every trend.")
-        // The three sizes macOS offers, so the size is a choice made when the
-        // widget is dragged out rather than one baked in here. There is no
-        // fourth: `systemExtraLarge` is an iPad family, unavailable to a macOS
-        // target, and naming it here does not compile.
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .description("Recovery, sleep and strain as rings, the day's heart rate "
+                     + "from resting to peak, and a week of every trend.")
+        // Large only.
+        //
+        // A widget's size is picked in the gallery when it is dragged out, and
+        // the default is the smallest offered — so registering three families
+        // means the easiest thing to do is come away with the small one. This
+        // is written to be the large one, and offering only that is the sole
+        // way a widget can say so: there is no API for a preferred size.
+        //
+        // `SmallView` and `MediumView` are kept rather than deleted. They are
+        // complete layouts, tuned against a canvas that clips rather than
+        // shrinks, and re-offering either is adding its family back to this
+        // line — which is a cheaper thing to keep working than to rebuild.
+        .supportedFamilies([.systemLarge])
         // The layouts pad themselves; see WhoopWidgetView.
         .contentMarginsDisabled()
     }
