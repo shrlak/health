@@ -51,10 +51,9 @@ struct ContentView: View {
                     .font(.headline)
                     .foregroundStyle(.white.opacity(0.85))
                 Text("Right-click the desktop, choose Edit Widgets, search for Whoop, "
-                     + "and drag the size you want into place. Small shows recovery, "
-                     + "strain and sleep; medium adds HRV, resting heart rate and trend "
-                     + "lines; large adds heart rate, sleep against need and a labelled "
-                     + "week of every metric. Drop a second copy to keep two sizes at once.")
+                     + "and drag it into place. Only the large size is offered: "
+                     + "recovery, readiness, sleep and strain as rings, the day's heart "
+                     + "rate, and a labelled week of every metric.")
                     .font(.callout)
                     .foregroundStyle(.white.opacity(0.55))
                     .fixedSize(horizontal: false, vertical: true)
