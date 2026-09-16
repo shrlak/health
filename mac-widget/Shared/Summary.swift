@@ -37,6 +37,9 @@ struct Summary: Decodable {
     let hrvTrend: [TrendPoint]?
     let sleepTrend: [TrendPoint]?
     let restingHrTrend: [TrendPoint]?
+    let caloriesTrend: [TrendPoint]?
+    let avgHrTrend: [TrendPoint]?
+    let maxHrTrend: [TrendPoint]?
     let updatedAt: String
 }
 
@@ -170,6 +173,9 @@ extension Summary {
     var hrvTrendPoints: [TrendPoint] { hrvTrend ?? [] }
     var sleepTrendPoints: [TrendPoint] { sleepTrend ?? [] }
     var restingHrTrendPoints: [TrendPoint] { restingHrTrend ?? [] }
+    var caloriesTrendPoints: [TrendPoint] { caloriesTrend ?? [] }
+    var avgHrTrendPoints: [TrendPoint] { avgHrTrend ?? [] }
+    var maxHrTrendPoints: [TrendPoint] { maxHrTrend ?? [] }
 
     var sleepText: String {
         guard let minutes = sleepMin else { return "—" }
@@ -177,8 +183,6 @@ extension Summary {
     }
 
     var sleepNeedText: String { sleepNeedMin.map(durationText) ?? "—" }
-    var sleepPerformanceText: String { sleepPerformance.map { "\(Int($0.rounded()))%" } ?? "—" }
-    var sleepEfficiencyText: String { sleepEfficiency.map { "\(Int($0.rounded()))%" } ?? "—" }
 
     /// How much of the night's need was actually slept, 0…1, for the large
     /// layout's meter. Capped at 1: sleeping past the need fills the bar
@@ -186,16 +190,6 @@ extension Summary {
     var sleepFraction: Double? {
         guard let sleepMin, let need = sleepNeedMin, need > 0 else { return nil }
         return min(max(sleepMin / need, 0), 1)
-    }
-
-    /// "1h 05m short" / "32m over", the gap between slept and needed. Whoop
-    /// gives a percentage for the same thing; the duration is what tells you
-    /// how much earlier to go to bed.
-    var sleepBalanceText: String? {
-        guard let sleepMin, let need = sleepNeedMin else { return nil }
-        let diff = sleepMin - need
-        if abs(diff) < 5 { return "on need" }
-        return diff < 0 ? "\(durationText(-diff)) short" : "\(durationText(diff)) over"
     }
 
     /// 0…1 like `sleepFraction` and `strainFraction`: nil rather than zero when
@@ -212,6 +206,21 @@ extension Summary {
     var strainFraction: Double? {
         guard let strain else { return nil }
         return min(max(strain / 21, 0), 1)
+    }
+
+    /// Calories have no ceiling of their own, so the ring is drawn against the
+    /// highest day in the window — "today against your hardest recent day".
+    /// Nil whenever there is no high to compare to, which keeps the ring empty
+    /// rather than inventing a full one.
+    var caloriesFraction: Double? {
+        guard let calories, let high = TrendStats(caloriesTrendPoints)?.high, high > 0 else { return nil }
+        return min(max(calories / high, 0), 1)
+    }
+
+    /// "of 2,890 high", the ceiling the calories ring is drawn against.
+    var caloriesCeilingText: String? {
+        guard let high = TrendStats(caloriesTrendPoints)?.high, high > 0 else { return nil }
+        return "of \(Int(high.rounded())) high"
     }
 
     /// 0…1 for the readiness meter, from the same 0…10 score as the badge.
@@ -312,6 +321,9 @@ extension Summary {
     /// show a trend for.
     var hrvDelta: TrendDelta? { trendDelta(hrvTrendPoints, decimals: 0) }
     var restingHrDelta: TrendDelta? { trendDelta(restingHrTrendPoints, decimals: 0) }
+    var avgHrDelta: TrendDelta? { trendDelta(avgHrTrendPoints, decimals: 0) }
+    var maxHrDelta: TrendDelta? { trendDelta(maxHrTrendPoints, decimals: 0) }
+    var caloriesDelta: TrendDelta? { trendDelta(caloriesTrendPoints, decimals: 0) }
     var sleepDelta: TrendDelta? { trendDelta(sleepTrendPoints, decimals: 0, format: durationText) }
 
     /// A week of each metric, for the large layout's labelled trend rows.
@@ -320,6 +332,9 @@ extension Summary {
     var hrvWeek: TrendStats? { TrendStats(hrvTrendPoints, days: 7) }
     var restingHrWeek: TrendStats? { TrendStats(restingHrTrendPoints, days: 7) }
     var sleepWeek: TrendStats? { TrendStats(sleepTrendPoints, days: 7) }
+    var caloriesWeek: TrendStats? { TrendStats(caloriesTrendPoints, days: 7) }
+    var avgHrWeek: TrendStats? { TrendStats(avgHrTrendPoints, days: 7) }
+    var maxHrWeek: TrendStats? { TrendStats(maxHrTrendPoints, days: 7) }
 
     /// How many days the payload's window actually has readings for, so the
     /// large layout can say what its averages are averaging.
@@ -330,7 +345,7 @@ extension Summary {
             .count
     }
 
-    /// "Mon 14 Sep", or nothing if no day has been scored yet.
+    /// "Sep 15 (Tue)", or nothing if no day has been scored yet.
     var dayText: String {
         guard let day else { return "No data yet" }
         let parser = DateFormatter()
@@ -339,7 +354,7 @@ extension Summary {
         guard let date = parser.date(from: day) else { return day }
 
         let display = DateFormatter()
-        display.dateFormat = "EEE d MMM"
+        display.dateFormat = "MMM d '('EEE')'"
         display.timeZone = TimeZone(secondsFromGMT: 0)
         return display.string(from: date)
     }

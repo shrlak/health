@@ -287,7 +287,7 @@ the whole summary.
 ```
 small                          medium
 ┌──────────────┐               ┌────────────────────────────────┐
-│  ◜◝          │               │   ◜◝     Sun 14 Sep            │
+│  ◜◝          │               │   ◜◝    Sep 14 (Sun)           │
 │ ◟  ◞  82%    │               │  ◟  ◞    STRAIN  5.0  SLEEP 9h │
 │              │               │   82%    HRV 84 ms  RHR 45 bpm │
 │ STRAIN  5.0  │               │ RECOVERY ╱╲__╱‾╲__╱‾           │
@@ -296,7 +296,7 @@ small                          medium
 
 large
 ┌────────────────────────────────┐
-│ WHOOP               Tue 15 Sep │
+│ WHOOP              Sep 15 (Tue)│
 │    ◜◝       ◜◝       ◜◝        │
 │   ◟92%◞    ◟5h20◞   ◟6.7◞      │
 │  RECOVERY   SLEEP    STRAIN    │
@@ -314,6 +314,11 @@ large
 │ Updated 23:19 · 30 days logged │
 └────────────────────────────────┘
 ```
+
+The app window shows the same figures at a larger type scale, with everything
+that has a ceiling drawn as a ring — recovery, readiness, sleep against need,
+strain, and the day's calories against the hardest day in the window — and each
+heart metric shown with its number, how it moved, and a week of it.
 
 The large size shows the day rather than listing it. The three figures with a
 ceiling become three rings of the same shape, so they can be compared at a

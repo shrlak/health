@@ -57,6 +57,11 @@ export interface Summary {
   /** Minutes asleep per day, for the large widget's sleep trend. */
   sleepTrend: Array<{ day: string; value: number }>
   restingHrTrend: Array<{ day: string; value: number }>
+  /** Kilocalories per day. The day's own figure has no ceiling to be drawn
+   *  against, so the ring uses this window's high as one. */
+  caloriesTrend: Array<{ day: string; value: number }>
+  avgHrTrend: Array<{ day: string; value: number }>
+  maxHrTrend: Array<{ day: string; value: number }>
   updatedAt: string
 }
 
@@ -74,6 +79,10 @@ const trend = <T extends { day: string }>(
     .map((r) => ({ day: r.day, value: pick(r) }))
     .filter((p): p is { day: string; value: number } => p.value !== null)
     .sort((a, b) => a.day.localeCompare(b.day))
+
+/** Whoop reports energy in kilojoules; everything downstream shows kcal. */
+const kcal = (kilojoules: number | null | undefined): number | null =>
+  kilojoules != null ? Math.round(kilojoules / 4.184) : null
 
 const mean = (xs: number[]): number | null =>
   xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null
@@ -178,6 +187,9 @@ export function summarise(
   const hrvTrend = trend(recovery, (r) => r.hrv_ms)
   const sleepTrend = trend(sleep, (row) => row.asleep_min)
   const restingHrTrend = trend(recovery, (r) => r.resting_hr)
+  const caloriesTrend = trend(cycles, (c) => kcal(c.kilojoules))
+  const avgHrTrend = trend(cycles, (c) => c.avg_hr)
+  const maxHrTrend = trend(cycles, (c) => c.max_hr)
 
   const days = [...cycles, ...recovery, ...sleep].map((r) => r.day).filter(Boolean).sort()
   const day = days.length ? days[days.length - 1] : null
@@ -198,7 +210,7 @@ export function summarise(
     hrv: r?.hrv_ms ?? null,
     restingHr: r?.resting_hr ?? null,
     strain: c?.strain ?? null,
-    calories: c?.kilojoules != null ? Math.round(c.kilojoules / 4.184) : null,
+    calories: kcal(c?.kilojoules),
     avgHr: c?.avg_hr ?? null,
     maxHr: c?.max_hr ?? null,
     sleepMin: s?.asleep_min ?? null,
@@ -212,6 +224,9 @@ export function summarise(
     hrvTrend,
     sleepTrend,
     restingHrTrend,
+    caloriesTrend,
+    avgHrTrend,
+    maxHrTrend,
     updatedAt: now.toISOString(),
   }
 }

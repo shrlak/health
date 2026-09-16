@@ -20,6 +20,24 @@ import WidgetKit
 /// So every piece below asks which mode it is in, and in the monochrome modes
 /// draws flat: no material, no blur, no glow, white ink, hierarchy by opacity.
 
+/// Multiplies the fixed point sizes every view below is written in.
+///
+/// Those sizes are budgeted for a widget, where a point spent on type is a
+/// point taken from the content and the whole thing clips rather than scrolls.
+/// The app window has no such ceiling, and at widget sizes its captions read as
+/// fine print, so it turns this up rather than each view carrying two sets of
+/// numbers.
+private struct GlassTextScaleKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 1
+}
+
+extension EnvironmentValues {
+    var glassTextScale: CGFloat {
+        get { self[GlassTextScaleKey.self] }
+        set { self[GlassTextScaleKey.self] = newValue }
+    }
+}
+
 extension WidgetRenderingMode {
     /// True wherever hue is discarded and effects are flattened: macOS's
     /// faded desktop widgets (`.vibrant`) and tinted home screens
@@ -275,6 +293,7 @@ struct Sparkline: View {
 
 struct Stat: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.glassTextScale) private var textScale
     let label: String
     let value: String
     var color: Color = GlassPalette.accentStart
@@ -301,7 +320,7 @@ struct Stat: View {
             HStack(spacing: 4) {
                 dot
                 Text(label)
-                    .font(.system(size: 9, weight: mono ? .semibold : .medium))
+                    .font(.system(size: 9 * textScale, weight: mono ? .semibold : .medium))
                     .tracking(1.1)
                     .foregroundStyle(ink(mono ? 0.75 : 0.9))
                     .lineLimit(1)
@@ -309,19 +328,19 @@ struct Stat: View {
             }
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(.system(size: 14 * textScale, weight: .semibold, design: .rounded))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .foregroundStyle(.white)
                 if let delta, delta.direction != .flat {
                     Text("\(delta.symbol)\(delta.magnitudeText)")
-                        .font(.system(size: 8, weight: .semibold, design: .rounded))
+                        .font(.system(size: 8 * textScale, weight: .semibold, design: .rounded))
                         .foregroundStyle(ink(mono ? 0.7 : 0.85))
                 }
             }
             if let secondary {
                 Text(secondary)
-                    .font(.system(size: 7.5, weight: .medium))
+                    .font(.system(size: 7.5 * textScale, weight: .medium))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .foregroundStyle(ink(mono ? 0.6 : 0.7))
@@ -348,6 +367,7 @@ struct Stat: View {
 /// recovery ring rather than taking a full stat row of its own.
 struct ReadinessBadge: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.glassTextScale) private var textScale
     let score: Double
     let shortLabel: String
     let color: Color
@@ -358,7 +378,7 @@ struct ReadinessBadge: View {
         HStack(spacing: 3) {
             dot
             Text("\(shortLabel) \(String(format: "%.1f", score))")
-                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                .font(.system(size: 8 * textScale, weight: .semibold, design: .rounded))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .foregroundStyle(mono ? Color.white.opacity(0.8) : color.opacity(0.9))
@@ -399,70 +419,6 @@ struct Unavailable: View {
     }
 }
 
-/// A horizontal meter, for a figure with a natural ceiling: sleep against the
-/// night's need, day strain against a maxed-out day, readiness out of ten. A
-/// number alone says what happened; the bar says how much of the thing it is.
-struct MeterBar: View {
-    @Environment(\.widgetRenderingMode) private var renderingMode
-    let label: String
-    let value: String
-    /// 0…1, or nil when the figure has not been scored — an unscored metric
-    /// draws an empty track rather than a full bar at zero.
-    let fraction: Double?
-    var color: Color = GlassPalette.accentStart
-    var caption: String? = nil
-    var height: CGFloat = 5
-
-    private var mono: Bool { renderingMode.isMonochrome }
-
-    private func ink(_ opacity: Double) -> Color {
-        mono ? Color.white.opacity(opacity) : color.opacity(opacity)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(label)
-                    .font(.system(size: 8.5, weight: mono ? .semibold : .medium))
-                    .tracking(1.0)
-                    .foregroundStyle(ink(mono ? 0.75 : 0.9))
-                Spacer(minLength: 4)
-                Text(value)
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
-                if let caption {
-                    Text(caption)
-                        .font(.system(size: 8, weight: .medium))
-                        .foregroundStyle(ink(mono ? 0.6 : 0.75))
-                }
-            }
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-
-            track
-        }
-    }
-
-    private var track: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(mono ? 0.22 : 0.12))
-                if let fraction {
-                    // A hairline of fill at a near-zero fraction still reads as
-                    // "scored, but barely", which an empty track does not.
-                    Capsule()
-                        .fill(mono ? AnyShapeStyle(Color.white.opacity(0.85))
-                                   : AnyShapeStyle(LinearGradient(
-                                        colors: [color.opacity(0.65), color],
-                                        startPoint: .leading, endPoint: .trailing)))
-                        .frame(width: max(geo.size.width * CGFloat(fraction), 3))
-                }
-            }
-        }
-        .frame(height: height)
-    }
-}
-
 /// One labelled row of a trend section: what the metric is, where it stands
 /// now, the shape of the last week, and the average and range that shape is
 /// drawn against. A sparkline on its own has no scale; this gives it one.
@@ -472,6 +428,7 @@ struct TrendRow: View {
     enum Style { case line, bars }
 
     @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.glassTextScale) private var textScale
     let label: String
     let value: String
     let points: [TrendPoint]
@@ -497,23 +454,23 @@ struct TrendRow: View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(label)
-                    .font(.system(size: 8, weight: mono ? .semibold : .medium))
+                    .font(.system(size: 8 * textScale, weight: mono ? .semibold : .medium))
                     .tracking(0.9)
                     .foregroundStyle(ink(mono ? 0.75 : 0.9))
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text(value)
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .font(.system(size: 11 * textScale, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white)
                     if let delta, delta.direction != .flat {
                         Text("\(delta.symbol)\(delta.magnitudeText)")
-                            .font(.system(size: 7.5, weight: .semibold, design: .rounded))
+                            .font(.system(size: 7.5 * textScale, weight: .semibold, design: .rounded))
                             .foregroundStyle(ink(mono ? 0.7 : 0.85))
                     }
                 }
             }
             .lineLimit(1)
             .minimumScaleFactor(0.7)
-            .frame(width: labelWidth, alignment: .leading)
+            .frame(width: labelWidth * textScale, alignment: .leading)
 
             // A single point has no line to draw, so the row keeps its place
             // in the stack and shows the figures without a shape. Bars survive
@@ -526,14 +483,16 @@ struct TrendRow: View {
 
             if let detail {
                 Text(detail)
-                    .font(.system(size: 7.5, weight: .medium))
+                    .font(.system(size: 7.5 * textScale, weight: .medium))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .foregroundStyle(Color.white.opacity(mono ? 0.6 : 0.5))
-                    .frame(width: detailWidth, alignment: .trailing)
+                    .frame(width: detailWidth * textScale, alignment: .trailing)
             }
         }
-        .frame(height: height)
+        // The columns and the row grow with the type, or larger text in the
+        // same box is just text with less room to be in.
+        .frame(height: height * textScale)
     }
 
     @ViewBuilder
@@ -549,12 +508,13 @@ struct TrendRow: View {
 /// the large layout into sections that a glance can skip between.
 struct SectionHeader: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.glassTextScale) private var textScale
     let title: String
 
     var body: some View {
         HStack(spacing: 6) {
             Text(title)
-                .font(.system(size: 8, weight: .semibold))
+                .font(.system(size: 8 * textScale, weight: .semibold))
                 .tracking(1.2)
                 .foregroundStyle(Color.white.opacity(renderingMode.isMonochrome ? 0.7 : 0.55))
             Rectangle()
@@ -570,6 +530,7 @@ struct SectionHeader: View {
 /// meant to be read together at a glance.
 struct RingGauge: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.glassTextScale) private var textScale
     let title: String
     let value: String
     var caption: String? = nil
@@ -605,13 +566,13 @@ struct RingGauge: View {
             .frame(width: diameter, height: diameter)
 
             Text(title)
-                .font(.system(size: 8, weight: mono ? .semibold : .medium))
+                .font(.system(size: 8 * textScale, weight: mono ? .semibold : .medium))
                 .tracking(0.9)
                 .foregroundStyle(mono ? Color.white.opacity(0.75) : color.opacity(0.9))
 
             if let caption {
                 Text(caption)
-                    .font(.system(size: 7.5, weight: .medium))
+                    .font(.system(size: 7.5 * textScale, weight: .medium))
                     .foregroundStyle(.white.opacity(mono ? 0.6 : 0.5))
             }
         }
@@ -640,6 +601,7 @@ struct RingGauge: View {
 /// this says how hard the day was.
 struct HeartRateRange: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.glassTextScale) private var textScale
     let resting: Double?
     let average: Double?
     let peak: Double?
@@ -674,13 +636,13 @@ struct HeartRateRange: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 4) {
                 Text("HEART RATE")
-                    .font(.system(size: 8.5, weight: mono ? .semibold : .medium))
+                    .font(.system(size: 8.5 * textScale, weight: mono ? .semibold : .medium))
                     .tracking(1.0)
                     .foregroundStyle(mono ? Color.white.opacity(0.75)
                                           : MetricPalette.restingHR.opacity(0.9))
                 Spacer(minLength: 4)
                 Text(label)
-                    .font(.system(size: 8, weight: .medium))
+                    .font(.system(size: 8 * textScale, weight: .medium))
                     .foregroundStyle(.white.opacity(mono ? 0.7 : 0.55))
             }
             .lineLimit(1)

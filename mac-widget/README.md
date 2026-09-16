@@ -146,7 +146,7 @@ in Notification Center and a large one on the desktop read the same endpoint.
 | Widget says **Token rejected** | The token was revoked or mistyped. Create a new one on Connections and re-run `setup.sh`. |
 | Widget says **Nothing synced yet** | The token works but the account has no Whoop data in the last two weeks. |
 | The large size shows fewer trend rows than the screenshot | Expected. It fits itself to the canvas your Mac gives it; see [Why the large size sometimes shows fewer trend rows](#why-the-large-size-sometimes-shows-fewer-trend-rows). |
-| Average and peak heart rate show a dash | Those two arrived with the large size. The widget is newer than the deployed `whoop-widget` function — redeploy it (`supabase functions deploy whoop-widget`) and the next refresh fills them in. |
+| A figure shows a dash, or the calories ring is empty | The app is newer than the deployed `whoop-widget` function, so a field it wants is not in the payload yet. Redeploy it (`supabase functions deploy whoop-widget --no-verify-jwt`) and the next refresh fills it in. Every added field decodes as optional, so an old backend costs you that figure and nothing else. |
 | Widget is blank or stuck on placeholder text | Open the Whoop app. It fetches the same endpoint the same way and has room to say what failed. |
 | **Whoop** is not in the Edit Widgets list | The app has not been run from a stable location. Do step 7. |
 | The number looks stale | WidgetKit budgets refreshes. Open the app and press **Refresh**, which reloads every timeline. |
@@ -194,7 +194,7 @@ assuming today.
 ```
 small                          medium
 ┌──────────────┐               ┌────────────────────────────────┐
-│  ◜◝          │               │   ◜◝     Sun 14 Sep            │
+│  ◜◝          │               │   ◜◝    Sep 14 (Sun)           │
 │ ◟  ◞  82%    │               │  ◟  ◞    STRAIN  5.0  SLEEP 9h │
 │              │               │   82%    HRV 84 ms  RHR 45 bpm │
 │ STRAIN  5.0  │               │ RECOVERY ╱╲__╱‾╲__╱‾           │
@@ -203,7 +203,7 @@ small                          medium
 
 large
 ┌────────────────────────────────┐
-│ WHOOP               Tue 15 Sep │
+│ WHOOP              Sep 15 (Tue)│
 │    ◜◝       ◜◝       ◜◝        │
 │   ◟92%◞    ◟5h20◞   ◟6.7◞      │
 │  RECOVERY   SLEEP    STRAIN    │
@@ -287,9 +287,9 @@ account with nothing synced yet, or no network.
 | --- | --- |
 | `project.yml` | The Xcode project, as a spec. Generated into `Whoop.xcodeproj` by `xcodegen`. |
 | `Shared/Summary.swift` | The response model, the fetch, and the display formatting. |
-| `Shared/Views.swift` | The rings, meters, heart-rate track, sparklines and bars, shared by the app and the widget. |
+| `Shared/Views.swift` | The rings, heart-rate track, sparklines and bars, shared by the app and the widget. |
 | `Widget/WhoopWidget.swift` | The timeline provider and the widget layouts, one per size. |
-| `App/WhoopApp.swift` | The container app, which is also the diagnostic window. |
+| `App/WhoopApp.swift` | The container app, which is also the diagnostic window. It draws the same figures at a larger type scale. |
 | `Config.example.swift` | Template for `Shared/Config.swift`. |
 
 A generated `.xcodeproj` is a large file that conflicts on every edit, so it is
