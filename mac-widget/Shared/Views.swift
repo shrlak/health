@@ -420,8 +420,10 @@ struct Unavailable: View {
 }
 
 /// One labelled row of a trend section: what the metric is, where it stands
-/// now, and the average and range the last week worked out to, as figures
-/// rather than a shape.
+/// now, and the average the last week worked out to, as figures rather than
+/// a shape. Label, value, delta and average all share one size rather than
+/// stepping down by importance, and value/delta/average share one baseline
+/// rather than the average floating centered against a two-line block.
 struct TrendRow: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
     @Environment(\.glassTextScale) private var textScale
@@ -429,57 +431,46 @@ struct TrendRow: View {
     let value: String
     let color: Color
     var delta: TrendDelta? = nil
-    /// "avg 62% · 41–88%", built by the caller since each metric rounds and
-    /// suffixes differently.
+    /// "avg 62%", built by the caller since each metric rounds and suffixes
+    /// differently.
     var detail: String? = nil
-    /// Wide enough for a value and its delta side by side. A duration is the
-    /// case that sets it: "5h 20m ↓1h 52m" is half as wide again as "92% ↑37",
-    /// and the column is shared, so it is sized for the longest row rather
-    /// than truncating that one.
-    var labelWidth: CGFloat = 88
     /// The large layout drops this a couple of points when it has to fit more
     /// rows into the same canvas; see `LargeView`.
     var height: CGFloat = 30
 
     private var mono: Bool { renderingMode.isMonochrome }
+    private var fontSize: CGFloat { 12 * textScale }
 
     private func ink(_ opacity: Double) -> Color {
         mono ? Color.white.opacity(opacity) : color.opacity(opacity)
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .font(.system(size: 9.5 * textScale, weight: mono ? .semibold : .medium))
-                    .tracking(0.9)
-                    .foregroundStyle(ink(mono ? 0.75 : 0.9))
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(value)
-                        .font(.system(size: 14 * textScale, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white)
-                    if let delta, delta.direction != .flat {
-                        Text("\(delta.symbol)\(delta.magnitudeText)")
-                            .font(.system(size: 9 * textScale, weight: .semibold, design: .rounded))
-                            .foregroundStyle(ink(mono ? 0.7 : 0.85))
-                    }
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.system(size: fontSize, weight: mono ? .semibold : .medium))
+                .tracking(0.9)
+                .foregroundStyle(ink(mono ? 0.75 : 0.9))
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(value)
+                    .font(.system(size: fontSize, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                if let delta, delta.direction != .flat {
+                    Text("\(delta.symbol)\(delta.magnitudeText)")
+                        .font(.system(size: fontSize, weight: .semibold, design: .rounded))
+                        .foregroundStyle(ink(mono ? 0.7 : 0.85))
+                }
+                if let detail {
+                    Spacer(minLength: 4)
+                    Text(detail)
+                        .font(.system(size: fontSize, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(mono ? 0.6 : 0.5))
                 }
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-            .frame(width: labelWidth * textScale, alignment: .leading)
-
-            if let detail {
-                Text(detail)
-                    .font(.system(size: 9.5 * textScale, weight: .medium))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .foregroundStyle(Color.white.opacity(mono ? 0.6 : 0.5))
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            } else {
-                Spacer(minLength: 0)
-            }
         }
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
         // The columns and the row grow with the type, or larger text in the
         // same box is just text with less room to be in.
         .frame(height: height * textScale)
