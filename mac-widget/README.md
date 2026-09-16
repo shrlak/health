@@ -1,8 +1,9 @@
 # Whoop widget for macOS
 
-A desktop / Notification Center widget showing the day as rings: recovery,
-sleep against the need Whoop set for it, and strain — with the day's heart rate
-from resting to peak, and a labelled week of every metric.
+A desktop / Notification Center widget showing the day as rings — recovery,
+readiness, sleep, strain and the day's burn — with the heart rate from resting
+to peak and a labelled week of every metric. It is the same design as the app
+window, in a fifth of the room.
 
 It offers the large size only. A widget's size is picked in the gallery when it
 is dragged out, and the default is the smallest on offer, so a widget that
@@ -199,24 +200,24 @@ assuming today.
 ## What it shows
 
 ```
-large
 ┌────────────────────────────────┐
-│ WHOOP              Sep 15 (Tue)│
-│    ◜◝       ◜◝       ◜◝        │
-│   ◟92%◞     ◟72%◞    ◟6.7◞     │
-│  RECOVERY   SLEEP    STRAIN    │
-│   GO 8.1    5h 20m   2009 kcal │
-│ HEART RATE  42 rest·65·122 peak│
-│ ▰▰▰▰▰●▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰  │
-│ ┌────────────────────────────┐ │
-│ │ HRV 112 ms ↑44 │ RHR 42 ↓5 │ │
-│ │ 7d avg 71 ms   │ 7d avg 47 │ │
-│ └────────────────────────────┘ │
+│ Sep 15 (Tue)         Go for it │
+│  ◜◝    ◜◝    ◜◝    ◜◝    ◜◝    │
+│ ◟92%◞ ◟8.1◞ ◟72%◞ ◟6.7◞ ◟2052◞ │
+│ RECOV  READY SLEEP STRAIN  CAL │
+│  ↑37   of 10 5h20m of 21   ↓93 │
 │ LAST 7 DAYS ────────────────── │
-│ RECOVERY 92% ╱╲_╱ avg 82%      │
-│ STRAIN  6.7  ▁▃▅▂▇▄▃ avg 7.3   │
-│ HRV     112  ╱╲_╱ avg 71 ms    │
-│ Updated 23:19 · 30 days logged │
+│ RECOVERY 92%↑37 ╱╲_╱   avg 82% │
+│ STRAIN  6.7↓3.4 ▁▃▅▂▇▄ avg 7.3 │
+│ SLEEP 5h20m↓1h52 ╱╲_╱ avg 8h21m│
+│ HEART ───────────────────────  │
+│ HEART RATE   42 rest·65·122 pk │
+│ ▰▰▰▰▰●▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰  │
+│ HRV    112ms↑44 ╱╲_╱ avg 86 ms │
+│ RESTING  42↓5   ╱╲_╱ avg 45bpm │
+│ AVG HR   65↓1   ╱╲_╱ avg 62bpm │
+│ PEAK HR 122↓23  ╱╲_╱ avg132bpm │
+│ Updated 23:55 · 30 days logged │
 └────────────────────────────────┘
 ```
 
@@ -224,13 +225,13 @@ large
 
 Three things on it are drawn rather than written:
 
-- **The rings.** Recovery, sleep and strain are the three figures with a
-  ceiling — a hundred percent, the need Whoop set for the night, a maxed-out
-  day at 21 — so they get the same shape and can be compared without reading
-  the numbers. Each shows its percentage in the middle and carries the figure
-  that belongs with it underneath: the readiness score, the hours actually
-  slept, the calories. The sleep ring draws Whoop's own sleep performance when
-  it has scored one, so the arc and the number inside it are the same figure.
+- **The rings.** Recovery, readiness, sleep, strain and the day's burn are the
+  five figures with a ceiling — a hundred percent, ten, the need Whoop set for
+  the night, a maxed-out day at 21, and yesterday's calories — so they get the
+  same shape and can be compared without reading the numbers. Each shows its
+  figure in the middle and what it is measured against underneath. The sleep
+  ring draws Whoop's own sleep performance when it has scored one, so the arc
+  and the number inside it are the same figure.
 - **The heart-rate range.** Resting, average and peak as one track rather than
   three numbers, with the average marked where it actually fell between the
   other two. Three figures in a column say what they were; the track says how

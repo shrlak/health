@@ -172,8 +172,8 @@ struct MediumView: View {
     }
 }
 
-/// One row of the large layout's trend section, built once and then handed to
-/// whichever density ends up fitting.
+/// One row of a trend section, built once and then handed to whichever density
+/// ends up fitting.
 private struct TrendSpec: Identifiable {
     let id: String
     let label: String
@@ -185,16 +185,15 @@ private struct TrendSpec: Identifiable {
     let style: TrendRow.Style
 }
 
-/// The large size, which is the one with room to show the day rather than
-/// list it: three rings for the figures that have a ceiling, the day's heart
-/// rate as a range, strain as columns and the rest as trend lines.
+/// The widget, drawn as the app window draws it: the same sections in the same
+/// order, so the thing on the desktop and the thing you open are one design.
 ///
-/// A widget cannot scroll and clips whatever does not fit, and macOS gives the
-/// large family a fixed canvas that is not the same on every display scale. So
-/// rather than one layout tuned to a guessed height, the same sections are
-/// offered at a few densities and `ViewThatFits` takes the richest one that
-/// actually fits: the rings and the day's numbers are in every variant, and
-/// the trend rows and the heart-rate diagram are what give way on a tight one.
+/// What differs is the room. The window is 780pt wide with its type scaled up
+/// and a scroll view under it; this is roughly 329x345 and clips whatever does
+/// not fit. So the sections are the same and the budget is not: the trend
+/// captions are the average alone rather than the average and the range, and
+/// the whole thing is offered at a ladder of densities that `ViewThatFits`
+/// picks from — the rings in every one, the heart rows first to go.
 struct LargeView: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
     let summary: Summary
@@ -203,29 +202,39 @@ struct LargeView: View {
 
     var body: some View {
         ViewThatFits(in: .vertical) {
-            stacked(trendRows: 5, ring: 78, spacing: 10, showHeartRate: true)
-            stacked(trendRows: 4, ring: 74, spacing: 9, showHeartRate: true)
-            stacked(trendRows: 3, ring: 70, spacing: 8, showHeartRate: true)
-            stacked(trendRows: 2, ring: 66, spacing: 8, showHeartRate: true)
-            stacked(trendRows: 1, ring: 62, spacing: 7, showHeartRate: true)
-            stacked(trendRows: 1, ring: 60, spacing: 6, showHeartRate: false)
-            stacked(trendRows: 0, ring: 56, spacing: 5, showHeartRate: false)
+            stacked(ring: 50, dayRows: 3, heartRows: 4, spacing: 8)
+            stacked(ring: 48, dayRows: 3, heartRows: 3, spacing: 7)
+            stacked(ring: 46, dayRows: 3, heartRows: 2, spacing: 7)
+            stacked(ring: 44, dayRows: 2, heartRows: 2, spacing: 6)
+            stacked(ring: 42, dayRows: 2, heartRows: 1, spacing: 6)
+            stacked(ring: 40, dayRows: 2, heartRows: 0, spacing: 5)
+            stacked(ring: 38, dayRows: 1, heartRows: 0, spacing: 5)
+            stacked(ring: 36, dayRows: 0, heartRows: 0, spacing: 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     // MARK: Arrangements
 
-    /// Each variant is the same sections in the same order; only the rings,
-    /// the gaps and how much of the trend section survives change.
-    private func stacked(trendRows: Int, ring: CGFloat, spacing: CGFloat, showHeartRate: Bool) -> some View {
+    private func stacked(ring: CGFloat, dayRows: Int, heartRows: Int, spacing: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: spacing) {
             header
-            ringRow(diameter: ring)
-            if showHeartRate { heartRate }
-            statTile
-            if trendRows > 0 {
-                trendsSection(limit: trendRows, rowHeight: trendRows >= 4 ? 22 : 24)
+            rings(diameter: ring)
+            if dayRows > 0 {
+                section(title: "LAST 7 DAYS", specs: daySpecs, limit: dayRows, rowHeight: 20)
+            }
+            if heartRows > 0 {
+                VStack(alignment: .leading, spacing: 3) {
+                    SectionHeader(title: "HEART")
+                    HeartRateRange(
+                        resting: summary.restingHr,
+                        average: summary.avgHr,
+                        peak: summary.maxHr
+                    )
+                    ForEach(heartSpecs.prefix(heartRows)) { spec in
+                        row(spec, height: 20)
+                    }
+                }
             }
             footer
         }
@@ -234,130 +243,99 @@ struct LargeView: View {
 
     // MARK: Sections
 
+    /// The day on the left and the readiness band on the right, as the window
+    /// has it. The app's own name is not worth a line here: the widget is
+    /// identified by being the one with the rings on it.
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text("WHOOP")
-                .font(.system(size: 9, weight: .bold))
-                .tracking(2.0)
-                .foregroundStyle(mono ? Color.white.opacity(0.75) : GlassPalette.accentStart)
-            Spacer(minLength: 6)
             Text(summary.dayText)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white.opacity(mono ? 0.8 : 0.7))
+                .foregroundStyle(.white.opacity(mono ? 0.85 : 0.9))
+            Spacer(minLength: 6)
+            Text(summary.readinessLongLabel)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(mono ? Color.white.opacity(0.75) : summary.readinessColor)
         }
         .lineLimit(1)
         .minimumScaleFactor(0.7)
     }
 
-    /// The three figures that only mean something against a ceiling, drawn as
-    /// the same shape so they can be compared at a glance: recovery out of a
-    /// hundred, the night against the need Whoop set for it, the day's strain
-    /// against a maxed-out one.
-    ///
-    /// Each caption carries the figure that belongs with it — the readiness
-    /// score under recovery, the need under sleep, the calories under strain —
-    /// which is what lets the tile below stay to two stats.
-    private func ringRow(diameter: CGFloat) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+    /// Everything with a ceiling, as the same shape: recovery out of a
+    /// hundred, readiness out of ten, the night as a percentage of its need,
+    /// strain against a maxed-out day, and the burn against the day before.
+    private func rings(diameter: CGFloat) -> some View {
+        HStack(alignment: .top, spacing: 5) {
             RingGauge(
-                title: "RECOVERY",
-                value: summary.recoveryText,
-                caption: summary.readiness != nil
-                    ? "\(summary.readinessShortLabel) \(summary.readinessText)" : nil,
-                fraction: summary.recoveryRingFraction,
-                color: summary.recoveryColor,
-                diameter: diameter,
-                lineWidth: diameter * 0.12,
-                valueSize: diameter * 0.26
+                title: "RECOVERY", value: summary.recoveryText,
+                caption: summary.recoveryDelta.map { "\($0.symbol)\($0.magnitudeText)" },
+                fraction: summary.recoveryRingFraction, color: summary.recoveryColor,
+                diameter: diameter, lineWidth: diameter * 0.13, valueSize: diameter * 0.30
             )
             .frame(maxWidth: .infinity)
 
             RingGauge(
-                title: "SLEEP",
-                value: summary.sleepPercentText,
+                title: "READINESS", value: summary.readinessText, caption: "of 10",
+                fraction: summary.readinessFraction, color: summary.readinessColor,
+                diameter: diameter, lineWidth: diameter * 0.13, valueSize: diameter * 0.30
+            )
+            .frame(maxWidth: .infinity)
+
+            RingGauge(
+                title: "SLEEP", value: summary.sleepPercentText,
                 caption: summary.sleepMin != nil ? summary.sleepText : nil,
-                fraction: summary.sleepPercentFraction,
-                color: MetricPalette.sleep,
-                diameter: diameter,
-                lineWidth: diameter * 0.12,
-                valueSize: diameter * 0.26
+                fraction: summary.sleepPercentFraction, color: MetricPalette.sleep,
+                diameter: diameter, lineWidth: diameter * 0.13, valueSize: diameter * 0.30
             )
             .frame(maxWidth: .infinity)
 
             RingGauge(
-                title: "STRAIN",
-                value: summary.strainText,
-                caption: summary.calories != nil ? summary.caloriesText : "of 21",
-                fraction: summary.strainFraction,
-                color: MetricPalette.strain,
-                diameter: diameter,
-                lineWidth: diameter * 0.12,
-                valueSize: diameter * 0.26
+                title: "STRAIN", value: summary.strainText, caption: "of 21",
+                fraction: summary.strainFraction, color: MetricPalette.strain,
+                diameter: diameter, lineWidth: diameter * 0.13, valueSize: diameter * 0.30
+            )
+            .frame(maxWidth: .infinity)
+
+            RingGauge(
+                title: "CALORIES", value: summary.caloriesValueText,
+                // The same comparison the window makes, without the words:
+                // "vs yesterday" does not fit a fifth of this width.
+                caption: summary.caloriesVsYesterdayShortText ?? "kcal",
+                fraction: summary.caloriesFraction, color: GlassPalette.accentStart,
+                diameter: diameter, lineWidth: diameter * 0.13, valueSize: diameter * 0.26
             )
             .frame(maxWidth: .infinity)
         }
     }
 
-    private var heartRate: some View {
-        HeartRateRange(
-            resting: summary.restingHr,
-            average: summary.avgHr,
-            peak: summary.maxHr
+    private func section(title: String, specs: [TrendSpec], limit: Int, rowHeight: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            SectionHeader(title: title)
+            ForEach(specs.prefix(limit)) { spec in
+                row(spec, height: rowHeight)
+            }
+        }
+    }
+
+    private func row(_ spec: TrendSpec, height: CGFloat) -> some View {
+        TrendRow(
+            label: spec.label, value: spec.value, points: spec.points,
+            color: spec.color, delta: spec.delta, detail: spec.detail,
+            style: spec.style, detailWidth: 58, height: height
         )
     }
 
-    /// What is left once the rings and the heart-rate track have taken their
-    /// share: the two metrics with no ceiling to draw them against, each shown
-    /// against its own week instead.
-    private var statTile: some View {
-        GlassCard(cornerRadius: 12) {
-            HStack(spacing: 10) {
-                Stat(
-                    label: "HRV", value: summary.hrvText,
-                    color: MetricPalette.hrv, delta: summary.hrvDelta,
-                    secondary: summary.hrvWeek.map { "7d avg \($0.averageText()) ms" },
-                    fillsWidth: true
-                )
-                Stat(
-                    label: "RESTING HR", value: summary.restingHrText,
-                    color: MetricPalette.restingHR, delta: summary.restingHrDelta,
-                    secondary: summary.restingHrWeek.map { "7d avg \($0.averageText()) bpm" },
-                    fillsWidth: true
-                )
-            }
-            .padding(8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
+    // MARK: The rows themselves
 
-    /// A week of each metric, every line labelled with where it stands now and
-    /// the average and range the shape is drawn against.
-    private func trendsSection(limit: Int, rowHeight: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            SectionHeader(title: "LAST 7 DAYS")
-            ForEach(trendSpecs.prefix(limit)) { spec in
-                TrendRow(
-                    label: spec.label, value: spec.value, points: spec.points,
-                    color: spec.color, delta: spec.delta, detail: spec.detail,
-                    style: spec.style, height: rowHeight
-                )
-            }
-        }
-    }
-
-    /// Built in the order they are worth losing from the bottom: recovery
-    /// leads, strain follows as the one drawn with bars, and the three the
-    /// rings and the tile already carry as numbers go last.
-    private var trendSpecs: [TrendSpec] {
+    /// Recovery, strain and sleep, in the order they are worth losing from the
+    /// bottom.
+    private var daySpecs: [TrendSpec] {
         var specs: [TrendSpec] = []
-
         if let week = summary.recoveryWeek {
             specs.append(TrendSpec(
                 id: "recovery", label: "RECOVERY", value: summary.recoveryText,
                 points: Array(summary.recoveryTrend.suffix(7)),
                 color: summary.recoveryColor, delta: summary.recoveryDelta,
-                detail: "avg \(week.averageText(unit: "%")) · \(week.rangeText(unit: "%"))",
-                style: .line
+                detail: "avg \(week.averageText(unit: "%"))", style: .line
             ))
         }
         if let week = summary.strainWeek {
@@ -365,28 +343,10 @@ struct LargeView: View {
                 id: "strain", label: "STRAIN", value: summary.strainText,
                 points: Array(summary.strainTrend.suffix(7)),
                 color: MetricPalette.strain, delta: summary.strainDelta,
-                detail: "avg \(week.averageText(decimals: 1)) · \(week.rangeText(decimals: 1))",
+                detail: "avg \(week.averageText(decimals: 1))",
                 // A day's strain is a separate effort, not a level that drifts
                 // between readings, so it is the one drawn as columns.
                 style: .bars
-            ))
-        }
-        if let week = summary.hrvWeek {
-            specs.append(TrendSpec(
-                id: "hrv", label: "HRV", value: summary.hrvText,
-                points: Array(summary.hrvTrendPoints.suffix(7)),
-                color: MetricPalette.hrv, delta: summary.hrvDelta,
-                detail: "avg \(week.averageText(unit: " ms")) · \(week.rangeText())",
-                style: .line
-            ))
-        }
-        if let week = summary.restingHrWeek {
-            specs.append(TrendSpec(
-                id: "restingHr", label: "RESTING HR", value: summary.restingHrText,
-                points: Array(summary.restingHrTrendPoints.suffix(7)),
-                color: MetricPalette.restingHR, delta: summary.restingHrDelta,
-                detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())",
-                style: .line
             ))
         }
         if let week = summary.sleepWeek {
@@ -394,11 +354,48 @@ struct LargeView: View {
                 id: "sleep", label: "SLEEP", value: summary.sleepText,
                 points: Array(summary.sleepTrendPoints.suffix(7)),
                 color: MetricPalette.sleep, delta: summary.sleepDelta,
-                detail: "avg \(durationText(week.average)) · \(durationText(week.low))–\(durationText(week.high))",
-                style: .line
+                detail: "avg \(durationText(week.average))", style: .line
             ))
         }
+        return specs
+    }
 
+    /// The four with no ceiling to draw them against, each shown against its
+    /// own week instead.
+    private var heartSpecs: [TrendSpec] {
+        var specs: [TrendSpec] = []
+        if let week = summary.hrvWeek {
+            specs.append(TrendSpec(
+                id: "hrv", label: "HRV", value: summary.hrvText,
+                points: Array(summary.hrvTrendPoints.suffix(7)),
+                color: MetricPalette.hrv, delta: summary.hrvDelta,
+                detail: "avg \(week.averageText(unit: " ms"))", style: .line
+            ))
+        }
+        if let week = summary.restingHrWeek {
+            specs.append(TrendSpec(
+                id: "restingHr", label: "RESTING HR", value: summary.restingHrText,
+                points: Array(summary.restingHrTrendPoints.suffix(7)),
+                color: MetricPalette.restingHR, delta: summary.restingHrDelta,
+                detail: "avg \(week.averageText(unit: " bpm"))", style: .line
+            ))
+        }
+        if let week = summary.avgHrWeek {
+            specs.append(TrendSpec(
+                id: "avgHr", label: "AVG HR", value: summary.avgHrText,
+                points: Array(summary.avgHrTrendPoints.suffix(7)),
+                color: GlassPalette.accentStart, delta: summary.avgHrDelta,
+                detail: "avg \(week.averageText(unit: " bpm"))", style: .line
+            ))
+        }
+        if let week = summary.maxHrWeek {
+            specs.append(TrendSpec(
+                id: "maxHr", label: "PEAK HR", value: summary.maxHrText,
+                points: Array(summary.maxHrTrendPoints.suffix(7)),
+                color: GlassPalette.accentEnd, delta: summary.maxHrDelta,
+                detail: "avg \(week.averageText(unit: " bpm"))", style: .line
+            ))
+        }
         return specs
     }
 

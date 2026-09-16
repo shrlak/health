@@ -287,33 +287,32 @@ is written for the large canvas, and offering that alone is the only way a
 widget can say so.
 
 ```
-large
 ┌────────────────────────────────┐
-│ WHOOP              Sep 15 (Tue)│
-│    ◜◝       ◜◝       ◜◝        │
-│   ◟92%◞     ◟72%◞    ◟6.7◞     │
-│  RECOVERY   SLEEP    STRAIN    │
-│   GO 8.1    5h 20m   2009 kcal │
-│ HEART RATE  42 rest·65·122 peak│
-│ ▰▰▰▰▰●▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰  │
-│ ┌────────────────────────────┐ │
-│ │ HRV 112 ms ↑44 │ RHR 42 ↓5 │ │
-│ │ 7d avg 71 ms   │ 7d avg 47 │ │
-│ └────────────────────────────┘ │
+│ Sep 15 (Tue)         Go for it │
+│  ◜◝    ◜◝    ◜◝    ◜◝    ◜◝    │
+│ ◟92%◞ ◟8.1◞ ◟72%◞ ◟6.7◞ ◟2052◞ │
+│ RECOV  READY SLEEP STRAIN  CAL │
+│  ↑37   of 10 5h20m of 21   ↓93 │
 │ LAST 7 DAYS ────────────────── │
-│ RECOVERY 92% ╱╲_╱ avg 82%      │
-│ STRAIN  6.7  ▁▃▅▂▇▄▃ avg 7.3   │
-│ HRV     112  ╱╲_╱ avg 71 ms    │
-│ Updated 23:19 · 30 days logged │
+│ RECOVERY 92%↑37 ╱╲_╱   avg 82% │
+│ STRAIN  6.7↓3.4 ▁▃▅▂▇▄ avg 7.3 │
+│ SLEEP 5h20m↓1h52 ╱╲_╱ avg 8h21m│
+│ HEART ───────────────────────  │
+│ HEART RATE   42 rest·65·122 pk │
+│ ▰▰▰▰▰●▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰  │
+│ HRV    112ms↑44 ╱╲_╱ avg 86 ms │
+│ RESTING  42↓5   ╱╲_╱ avg 45bpm │
+│ AVG HR   65↓1   ╱╲_╱ avg 62bpm │
+│ PEAK HR 122↓23  ╱╲_╱ avg132bpm │
+│ Updated 23:55 · 30 days logged │
 └────────────────────────────────┘
 ```
 
-The app window shows the same figures at a larger type scale, with everything
-that has a ceiling drawn as a ring — recovery, readiness, sleep against need,
-strain, and the day's calories against the day before — and each heart metric
-shown with its number, how it moved, and a week of it.
+The app window is the same design with more room: the same sections in the
+same order, at a larger type scale, with the trend captions carrying each
+metric's range as well as its average.
 
-The large size shows the day rather than listing it. The three figures with a
+The widget shows the day rather than listing it. The three figures with a
 ceiling become three rings of the same shape, so they can be compared at a
 glance: recovery out of a hundred, the night as a percentage of the need Whoop
 set for it, the day's strain against a maxed-out one — each captioned with the
