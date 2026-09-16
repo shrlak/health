@@ -223,21 +223,21 @@ struct ContentView: View {
             specs.append(TrendSpec(
                 id: "recovery", label: "RECOVERY", value: summary.recoveryText,
                 color: summary.recoveryColor, delta: summary.recoveryDelta,
-                detail: "avg \(week.averageText(unit: "%")) · \(week.rangeText(unit: "%"))"
+                detail: "avg \(week.averageText(unit: "%"))"
             ))
         }
         if let week = summary.strainWeek {
             specs.append(TrendSpec(
                 id: "strain", label: "STRAIN", value: summary.strainText,
                 color: MetricPalette.strain, delta: summary.strainDelta,
-                detail: "avg \(week.averageText(decimals: 1)) · \(week.rangeText(decimals: 1))"
+                detail: "avg \(week.averageText(decimals: 1))"
             ))
         }
         if let week = summary.sleepWeek {
             specs.append(TrendSpec(
                 id: "sleep", label: "SLEEP", value: summary.sleepText,
                 color: MetricPalette.sleep, delta: summary.sleepDelta,
-                detail: "avg \(durationText(week.average)) · \(durationText(week.low))–\(durationText(week.high))"
+                detail: "avg \(durationText(week.average))"
             ))
         }
         return specs
@@ -249,28 +249,28 @@ struct ContentView: View {
             specs.append(TrendSpec(
                 id: "hrv", label: "HRV", value: summary.hrvText,
                 color: MetricPalette.hrv, delta: summary.hrvDelta,
-                detail: "avg \(week.averageText(unit: " ms")) · \(week.rangeText())"
+                detail: "avg \(week.averageText(unit: " ms"))"
             ))
         }
         if let week = summary.restingHrWeek {
             specs.append(TrendSpec(
                 id: "restingHr", label: "RESTING HR", value: summary.restingHrText,
                 color: MetricPalette.restingHR, delta: summary.restingHrDelta,
-                detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
+                detail: "avg \(week.averageText(unit: " bpm"))"
             ))
         }
         if let week = summary.avgHrWeek {
             specs.append(TrendSpec(
                 id: "avgHr", label: "AVG HR", value: summary.avgHrText,
                 color: GlassPalette.accentStart, delta: summary.avgHrDelta,
-                detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
+                detail: "avg \(week.averageText(unit: " bpm"))"
             ))
         }
         if let week = summary.maxHrWeek {
             specs.append(TrendSpec(
                 id: "maxHr", label: "PEAK HR", value: summary.maxHrText,
                 color: GlassPalette.accentEnd, delta: summary.maxHrDelta,
-                detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
+                detail: "avg \(week.averageText(unit: " bpm"))"
             ))
         }
         return specs
