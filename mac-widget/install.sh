@@ -107,7 +107,13 @@ fi
 # worth waiting for. Killing it is safe: launchd brings it straight back.
 killall chronod 2>/dev/null || true
 
-# Launching it once is what registers the widget extension with macOS.
+# Launching it once is what registers the widget extension with macOS. But
+# `open` on an app that is already running activates that process instead of
+# starting a new one, so a Whoop left open from before this build still shows
+# the old code, in the window and in whatever it just re-registered from. Quit
+# it first so the launch is a real one.
+osascript -e 'quit app "Whoop"' 2>/dev/null || true
+sleep 1
 open /Applications/Whoop.app
 
 echo
