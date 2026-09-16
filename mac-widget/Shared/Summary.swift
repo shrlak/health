@@ -246,12 +246,26 @@ extension Summary {
         return min(max(calories / yesterday, 0), 1)
     }
 
-    /// "↑312 vs yesterday", or nothing when yesterday was not scored.
-    var caloriesVsYesterdayText: String? {
+    /// Whole kilocalories more or less than the day before, or nothing when
+    /// yesterday was not scored.
+    var caloriesDiffVsYesterday: Int? {
         guard let calories, let yesterday = caloriesYesterday else { return nil }
-        let diff = Int((calories - yesterday).rounded())
+        return Int((calories - yesterday).rounded())
+    }
+
+    /// "↑312 vs yesterday", for a caption with room to say it.
+    var caloriesVsYesterdayText: String? {
+        guard let diff = caloriesDiffVsYesterday else { return nil }
         if diff == 0 { return "same as yesterday" }
         return diff > 0 ? "↑\(diff) vs yesterday" : "↓\(-diff) vs yesterday"
+    }
+
+    /// "↑312". The same comparison for the widget, where the caption has a
+    /// fifth of the widget's width to fit in and the words do not survive it.
+    var caloriesVsYesterdayShortText: String? {
+        guard let diff = caloriesDiffVsYesterday else { return nil }
+        if diff == 0 { return "same" }
+        return diff > 0 ? "↑\(diff)" : "↓\(-diff)"
     }
 
     /// The whole number of kilocalories, for a ring that shows the total and
@@ -358,7 +372,6 @@ extension Summary {
     var restingHrDelta: TrendDelta? { trendDelta(restingHrTrendPoints, decimals: 0) }
     var avgHrDelta: TrendDelta? { trendDelta(avgHrTrendPoints, decimals: 0) }
     var maxHrDelta: TrendDelta? { trendDelta(maxHrTrendPoints, decimals: 0) }
-    var caloriesDelta: TrendDelta? { trendDelta(caloriesTrendPoints, decimals: 0) }
     var sleepDelta: TrendDelta? { trendDelta(sleepTrendPoints, decimals: 0, format: durationText) }
 
     /// A week of each metric, for the large layout's labelled trend rows.

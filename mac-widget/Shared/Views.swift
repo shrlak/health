@@ -438,7 +438,11 @@ struct TrendRow: View {
     /// suffixes differently.
     var detail: String? = nil
     var style: Style = .line
-    var labelWidth: CGFloat = 58
+    /// Wide enough for a value and its delta side by side. A duration is the
+    /// case that sets it: "5h 20m ↓1h 52m" is half as wide again as "92% ↑37",
+    /// and the column is shared, so it is sized for the longest row rather
+    /// than truncating that one.
+    var labelWidth: CGFloat = 76
     var detailWidth: CGFloat = 92
     /// The large layout drops this a couple of points when it has to fit more
     /// rows into the same canvas; see `LargeView`.
