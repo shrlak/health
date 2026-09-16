@@ -175,35 +175,16 @@ struct ContentView: View {
         }
     }
 
-    /// Recovery, strain and sleep over the week. The three heart metrics get
+    /// Recovery, strain and sleep over the week. The four heart metrics get
     /// their own section below rather than sharing this one, since they are
     /// read together and against each other.
     @ViewBuilder
     private func dayTrends(_ summary: Summary) -> some View {
-        if summary.recoveryWeek != nil || summary.strainWeek != nil || summary.sleepWeek != nil {
+        let specs = daySpecs(summary)
+        if !specs.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
                 SectionHeader(title: "LAST 7 DAYS")
-                if let week = summary.recoveryWeek {
-                    TrendRow(
-                        label: "RECOVERY", value: summary.recoveryText,
-                        color: summary.recoveryColor, delta: summary.recoveryDelta,
-                        detail: "avg \(week.averageText(unit: "%")) · \(week.rangeText(unit: "%"))"
-                    )
-                }
-                if let week = summary.strainWeek {
-                    TrendRow(
-                        label: "STRAIN", value: summary.strainText,
-                        color: MetricPalette.strain, delta: summary.strainDelta,
-                        detail: "avg \(week.averageText(decimals: 1)) · \(week.rangeText(decimals: 1))"
-                    )
-                }
-                if let week = summary.sleepWeek {
-                    TrendRow(
-                        label: "SLEEP", value: summary.sleepText,
-                        color: MetricPalette.sleep, delta: summary.sleepDelta,
-                        detail: "avg \(durationText(week.average)) · \(durationText(week.low))–\(durationText(week.high))"
-                    )
-                }
+                columns(specs)
             }
         }
     }
@@ -213,45 +194,106 @@ struct ContentView: View {
     /// its own recent range instead.
     @ViewBuilder
     private func heart(_ summary: Summary) -> some View {
-        if summary.hrvWeek != nil || summary.restingHrWeek != nil
-            || summary.avgHrWeek != nil || summary.maxHrWeek != nil {
+        let specs = heartSpecs(summary)
+        if !specs.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
                 SectionHeader(title: "HEART")
+                columns(specs)
+            }
+        }
+    }
 
-                HeartRateRange(
-                    resting: summary.restingHr,
-                    average: summary.avgHr,
-                    peak: summary.maxHr,
-                    trackHeight: 9
-                )
+    // MARK: Trend rows
 
-                if let week = summary.hrvWeek {
-                    TrendRow(
-                        label: "HRV", value: summary.hrvText,
-                        color: MetricPalette.hrv, delta: summary.hrvDelta,
-                        detail: "avg \(week.averageText(unit: " ms")) · \(week.rangeText())"
-                    )
-                }
-                if let week = summary.restingHrWeek {
-                    TrendRow(
-                        label: "RESTING HR", value: summary.restingHrText,
-                        color: MetricPalette.restingHR, delta: summary.restingHrDelta,
-                        detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
-                    )
-                }
-                if let week = summary.avgHrWeek {
-                    TrendRow(
-                        label: "AVG HR", value: summary.avgHrText,
-                        color: GlassPalette.accentStart, delta: summary.avgHrDelta,
-                        detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
-                    )
-                }
-                if let week = summary.maxHrWeek {
-                    TrendRow(
-                        label: "PEAK HR", value: summary.maxHrText,
-                        color: GlassPalette.accentEnd, delta: summary.maxHrDelta,
-                        detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
-                    )
+    /// One row's worth of a trend section, built once and then handed to
+    /// `columns` rather than laid out inline, so recovery/strain/sleep and the
+    /// four heart metrics can share one two-column arrangement.
+    private struct TrendSpec: Identifiable {
+        let id: String
+        let label: String
+        let value: String
+        let color: Color
+        let delta: TrendDelta?
+        let detail: String
+    }
+
+    private func daySpecs(_ summary: Summary) -> [TrendSpec] {
+        var specs: [TrendSpec] = []
+        if let week = summary.recoveryWeek {
+            specs.append(TrendSpec(
+                id: "recovery", label: "RECOVERY", value: summary.recoveryText,
+                color: summary.recoveryColor, delta: summary.recoveryDelta,
+                detail: "avg \(week.averageText(unit: "%")) · \(week.rangeText(unit: "%"))"
+            ))
+        }
+        if let week = summary.strainWeek {
+            specs.append(TrendSpec(
+                id: "strain", label: "STRAIN", value: summary.strainText,
+                color: MetricPalette.strain, delta: summary.strainDelta,
+                detail: "avg \(week.averageText(decimals: 1)) · \(week.rangeText(decimals: 1))"
+            ))
+        }
+        if let week = summary.sleepWeek {
+            specs.append(TrendSpec(
+                id: "sleep", label: "SLEEP", value: summary.sleepText,
+                color: MetricPalette.sleep, delta: summary.sleepDelta,
+                detail: "avg \(durationText(week.average)) · \(durationText(week.low))–\(durationText(week.high))"
+            ))
+        }
+        return specs
+    }
+
+    private func heartSpecs(_ summary: Summary) -> [TrendSpec] {
+        var specs: [TrendSpec] = []
+        if let week = summary.hrvWeek {
+            specs.append(TrendSpec(
+                id: "hrv", label: "HRV", value: summary.hrvText,
+                color: MetricPalette.hrv, delta: summary.hrvDelta,
+                detail: "avg \(week.averageText(unit: " ms")) · \(week.rangeText())"
+            ))
+        }
+        if let week = summary.restingHrWeek {
+            specs.append(TrendSpec(
+                id: "restingHr", label: "RESTING HR", value: summary.restingHrText,
+                color: MetricPalette.restingHR, delta: summary.restingHrDelta,
+                detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
+            ))
+        }
+        if let week = summary.avgHrWeek {
+            specs.append(TrendSpec(
+                id: "avgHr", label: "AVG HR", value: summary.avgHrText,
+                color: GlassPalette.accentStart, delta: summary.avgHrDelta,
+                detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
+            ))
+        }
+        if let week = summary.maxHrWeek {
+            specs.append(TrendSpec(
+                id: "maxHr", label: "PEAK HR", value: summary.maxHrText,
+                color: GlassPalette.accentEnd, delta: summary.maxHrDelta,
+                detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
+            ))
+        }
+        return specs
+    }
+
+    private func row(_ spec: TrendSpec) -> some View {
+        TrendRow(label: spec.label, value: spec.value, color: spec.color,
+                 delta: spec.delta, detail: spec.detail)
+    }
+
+    /// Two to a line rather than one long column, since a figure and its week
+    /// take far less width than they do height. An odd one out gets the line
+    /// to itself rather than stretching to fill its partner's half.
+    private func columns(_ specs: [TrendSpec]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(stride(from: 0, to: specs.count, by: 2)), id: \.self) { index in
+                HStack(alignment: .top, spacing: 24) {
+                    row(specs[index]).frame(maxWidth: .infinity, alignment: .leading)
+                    if index + 1 < specs.count {
+                        row(specs[index + 1]).frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        Spacer(minLength: 0).frame(maxWidth: .infinity)
+                    }
                 }
             }
         }

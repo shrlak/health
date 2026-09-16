@@ -221,17 +221,7 @@ struct LargeView: View {
                 section(title: "LAST 7 DAYS", specs: daySpecs, limit: dayRows, rowHeight: 20)
             }
             if heartRows > 0 {
-                VStack(alignment: .leading, spacing: 3) {
-                    SectionHeader(title: "HEART")
-                    HeartRateRange(
-                        resting: summary.restingHr,
-                        average: summary.avgHr,
-                        peak: summary.maxHr
-                    )
-                    ForEach(heartSpecs.prefix(heartRows)) { spec in
-                        row(spec, height: 20)
-                    }
-                }
+                section(title: "HEART", specs: heartSpecs, limit: heartRows, rowHeight: 20)
             }
             footer
         }
@@ -307,8 +297,26 @@ struct LargeView: View {
     private func section(title: String, specs: [TrendSpec], limit: Int, rowHeight: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             SectionHeader(title: title)
-            ForEach(specs.prefix(limit)) { spec in
-                row(spec, height: rowHeight)
+            columns(Array(specs.prefix(limit)), rowHeight: rowHeight)
+        }
+    }
+
+    /// Two to a line rather than one long column, since a figure and its week
+    /// take far less width than they do height. An odd one out gets the line
+    /// to itself rather than stretching to fill its partner's half.
+    private func columns(_ specs: [TrendSpec], rowHeight: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            ForEach(Array(stride(from: 0, to: specs.count, by: 2)), id: \.self) { index in
+                HStack(alignment: .top, spacing: 14) {
+                    row(specs[index], height: rowHeight)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if index + 1 < specs.count {
+                        row(specs[index + 1], height: rowHeight)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        Spacer(minLength: 0).frame(maxWidth: .infinity)
+                    }
+                }
             }
         }
     }
