@@ -13,7 +13,10 @@ import { summarise } from '../_shared/summary.ts'
  * below is the whole of the authentication, so it runs before anything else.
  */
 
-const DAYS = 14
+// 30 days rather than a shorter window because the readiness score judges
+// today's HRV and resting heart rate against a trailing baseline, the same
+// horizon the dashboard's Insights tab uses.
+const DAYS = 30
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
@@ -38,13 +41,13 @@ Deno.serve(async (req) => {
 
     const [cycles, recovery, sleep] = await Promise.all([
       admin.from('cycles')
-        .select('day, strain, avg_hr, max_hr')
+        .select('day, strain, avg_hr, max_hr, kilojoules')
         .eq('user_id', userId).gte('day', since),
       admin.from('recovery')
         .select('day, recovery_pct, hrv_ms, resting_hr')
         .eq('user_id', userId).gte('day', since),
       admin.from('sleep_sessions')
-        .select('day, asleep_min, need_min, performance_pct')
+        .select('day, asleep_min, need_min, performance_pct, efficiency_pct')
         .eq('user_id', userId).gte('day', since).eq('is_nap', false),
     ])
 

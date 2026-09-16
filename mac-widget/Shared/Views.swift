@@ -3,79 +3,215 @@ import WidgetKit
 
 /// Small pieces the widget and the container app both draw.
 ///
-/// Two constraints shape all of them.
+/// All of the glass — the frosted tiles, the halos, the glows, the gradients —
+/// exists only while macOS is drawing the widget in colour, which it does only
+/// while the desktop is the front-most thing. Click any window and every
+/// desktop widget switches to WidgetKit's `.vibrant` rendering: hue is
+/// discarded and what is left is flattened into a wallpaper-tinted material,
+/// each pixel's opacity taken from its luminance.
 ///
-/// A widget is given a fixed box and clips whatever does not fit rather than
-/// shrinking it, so each of these reports an honest size and keeps its ink
-/// inside its own frame.
+/// A `Material` cannot survive that. Vibrant rendering has no way to represent
+/// a blur, so `.ultraThinMaterial` collapses into a solid fill at full
+/// brightness — which is why the frosted stat tile came back as an opaque slab
+/// painted straight over the numbers. Blurs, shadows and glows go the same
+/// way, adding haze to the mask instead of depth, and coloured mid-tone text
+/// inside all of it flattens to a grey that the slab swallows.
 ///
-/// And macOS only draws a desktop widget in colour while the desktop is the
-/// front-most thing. Click any window and it switches to `.vibrant`: the hue
-/// is discarded and what is left becomes a wallpaper-tinted material, with
-/// each pixel's opacity taken from its luminance. Light on light is the one
-/// thing that cannot survive that — background and text map to the same
-/// brightness and the numbers dissolve into a grey slab — so in that mode
-/// everything here draws white and the widget's background goes dark.
+/// So every piece below asks which mode it is in, and in the monochrome modes
+/// draws flat: no material, no blur, no glow, white ink, hierarchy by opacity.
 
 extension WidgetRenderingMode {
-    /// True wherever hue is discarded: macOS's faded desktop widgets
-    /// (`.vibrant`) and tinted home screens (`.accented`).
+    /// True wherever hue is discarded and effects are flattened: macOS's
+    /// faded desktop widgets (`.vibrant`) and tinted home screens
+    /// (`.accented`).
     var isMonochrome: Bool { self != .fullColor }
 }
 
+/// The widget's fixed dark-glass identity: a cyan-violet accent used for
+/// borders, glow and decoration, kept separate from the recovery ring's
+/// red/amber/green bands, which stay a meaningful health signal rather than
+/// a decorative color.
+enum GlassPalette {
+    static let accentStart = Color(red: 0.40, green: 0.80, blue: 1.00)
+    static let accentEnd = Color(red: 0.64, green: 0.44, blue: 1.00)
+    static let accent = LinearGradient(
+        colors: [accentStart, accentEnd],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
+    static let backgroundNear = Color(red: 0.08, green: 0.09, blue: 0.15)
+    static let backgroundDeep = Color(red: 0.03, green: 0.04, blue: 0.08)
+}
+
+/// Per-metric accents, lifted from the dashboard's dark-mode series palette
+/// (`src/index.css`) so a stat means the same color here as it does on the
+/// Insights tab. The recovery ring keeps its own red/amber/green health bands
+/// instead of a slot here, since that color already carries meaning.
+enum MetricPalette {
+    static let strain = Color(red: 1.00, green: 0.62, blue: 0.18)     // series-3 #ff9d2e
+    static let sleep = Color(red: 0.55, green: 0.55, blue: 1.00)      // series-7 #8b8cff
+    static let hrv = Color(red: 1.00, green: 0.18, blue: 0.44)        // series-1 #ff2d6f
+    static let restingHR = Color(red: 0.13, green: 0.83, blue: 0.77)  // series-4 #22d3c5
+}
+
+/// Always-dark backdrop for the widget and the app window. This trades the
+/// widget's adaptive system material for a deliberate look, since a
+/// washed-out light-mode version of the same glow would not read as
+/// intentional.
+struct GlassBackground: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [GlassPalette.backgroundNear, GlassPalette.backgroundDeep],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            RadialGradient(
+                colors: [GlassPalette.accentStart.opacity(0.25), .clear],
+                center: .topTrailing,
+                startRadius: 6,
+                endRadius: 220
+            )
+        }
+    }
+}
+
+/// A frosted tile, for giving a group of stats real depth instead of
+/// floating flat on the background.
+struct GlassCard<Content: View>: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    var cornerRadius: CGFloat = 14
+    let content: Content
+
+    init(cornerRadius: CGFloat = 14, @ViewBuilder content: () -> Content) {
+        self.cornerRadius = cornerRadius
+        self.content = content()
+    }
+
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    }
+
+    private var border: AnyShapeStyle {
+        renderingMode.isMonochrome
+            ? AnyShapeStyle(Color.white.opacity(0.25))
+            : AnyShapeStyle(GlassPalette.accent.opacity(0.5))
+    }
+
+    var body: some View {
+        content
+            .background(fill)
+            .overlay(shape.strokeBorder(border, lineWidth: 1))
+            .overlay(sheen)
+    }
+
+    /// The frost is the whole bug. `.ultraThinMaterial` has no vibrant
+    /// representation, so it is drawn as a solid at full brightness and covers
+    /// everything inside the tile. A flat, barely-there white is the same idea
+    /// expressed in something the mode can actually draw: it stays dim in the
+    /// mask, so the white numbers on top keep their contrast.
+    @ViewBuilder
+    private var fill: some View {
+        if renderingMode.isMonochrome {
+            shape.fill(Color.white.opacity(0.08))
+        } else {
+            shape.fill(.ultraThinMaterial)
+        }
+    }
+
+    /// A top-down highlight reads as depth against frost. Against a flattened
+    /// mask it is just haze, so it is dropped rather than adapted.
+    @ViewBuilder
+    private var sheen: some View {
+        if !renderingMode.isMonochrome {
+            shape
+                .fill(LinearGradient(
+                    colors: [.white.opacity(0.10), .clear],
+                    startPoint: .top,
+                    endPoint: .center
+                ))
+                .allowsHitTesting(false)
+        }
+    }
+}
+
 struct RecoveryRing: View {
-    @Environment(\.widgetRenderingMode) private var mode
+    @Environment(\.widgetRenderingMode) private var renderingMode
     let fraction: Double
     let color: Color
     let label: String
     var lineWidth: CGFloat = 9
+    /// The percentage in the middle does not scale with the frame on its own,
+    /// so the larger layouts pass a larger size rather than getting a small
+    /// number floating in a big ring.
+    var labelSize: CGFloat = 20
 
-    /// White is the brightest thing vibrant rendering can be handed, so it is
-    /// what comes back most solid. A tinted stroke comes back faint.
-    private var arc: Color { mode.isMonochrome ? .white : color }
-    private var track: Color {
-        mode.isMonochrome ? Color.white.opacity(0.3) : color.opacity(0.18)
-    }
+    private var mono: Bool { renderingMode.isMonochrome }
+    /// White is the brightest thing the vibrant mask can be handed, so it is
+    /// what comes back most solid. The band colour comes back faint, and the
+    /// percentage in the middle says what it said anyway.
+    private var arc: Color { mono ? .white : color }
 
     var body: some View {
         ZStack {
-            // strokeBorder insets the path by half the line width so the whole
-            // stroke lands inside the frame. A plain stroke centres itself on
-            // the path and hangs half its width outside, which the widget's
-            // own edge then shaves off.
+            if !mono {
+                // Decorative accent orbit: the fixed identity color, not the signal.
+                Circle()
+                    .strokeBorder(GlassPalette.accent.opacity(0.35), lineWidth: 1)
+                    .padding(-lineWidth * 0.5)
+
+                // Soft halo so the ring reads as glowing rather than flat.
+                Circle()
+                    .fill(color.opacity(0.30))
+                    .blur(radius: lineWidth * 1.2)
+                    .padding(lineWidth * 0.8)
+            }
+
+            // strokeBorder keeps the whole stroke inside the frame; a plain
+            // stroke centres on the path and hangs half its width outside,
+            // where the widget's edge shaves it off.
             Circle()
-                .strokeBorder(track, lineWidth: lineWidth)
-            Circle()
-                .inset(by: lineWidth / 2)
-                .trim(from: 0, to: fraction)
-                .stroke(arc, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .strokeBorder(arc.opacity(mono ? 0.28 : 0.18), lineWidth: lineWidth)
+
+            trimmedArc
                 .rotationEffect(.degrees(-90))
-            // The percentage says what the band colour says, which is why
-            // losing the hue loses no information.
+
             Text(label)
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
-                .foregroundStyle(mode.isMonochrome ? Color.white : Color.primary)
-                .minimumScaleFactor(0.5)
+                .font(.system(size: labelSize, weight: .semibold, design: .rounded))
+                .minimumScaleFactor(0.6)
                 .lineLimit(1)
-                // Keep the number inside the ring rather than over it.
+                .foregroundStyle(.white)
                 .padding(.horizontal, lineWidth)
         }
         // The ring is square; without this a caller that frames only one axis
         // gets an oval.
         .aspectRatio(1, contentMode: .fit)
     }
+
+    /// The glow behind the arc is depth in colour and haze in the mask, so it
+    /// is only drawn in full colour.
+    @ViewBuilder
+    private var trimmedArc: some View {
+        let stroked = Circle()
+            .inset(by: lineWidth / 2)
+            .trim(from: 0, to: fraction)
+            .stroke(arc, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+
+        if mono {
+            stroked
+        } else {
+            stroked.shadow(color: color.opacity(0.75), radius: lineWidth * 0.45)
+        }
+    }
 }
 
 struct Sparkline: View {
-    @Environment(\.widgetRenderingMode) private var mode
+    @Environment(\.widgetRenderingMode) private var renderingMode
     let points: [TrendPoint]
     let color: Color
-    var lineWidth: CGFloat = 1.8
 
-    private var stroke: Color { mode.isMonochrome ? .white : color }
-    /// A hairline survives being turned into a material badly; give it a
-    /// little more to work with once the colour is gone.
-    private var width: CGFloat { mode.isMonochrome ? max(lineWidth, 2.2) : lineWidth }
+    private var mono: Bool { renderingMode.isMonochrome }
 
     var body: some View {
         GeometryReader { geo in
@@ -85,88 +221,332 @@ struct Sparkline: View {
             let low = values.min() ?? 0
             let high = values.max() ?? 1
             let span = high - low
-            // The stroke is centred on the path, so the highest and lowest
-            // points need half a line width of room or they draw flat against
-            // the edge.
-            let inset = width / 2
-            let plot = max(geo.size.height - width, 0)
 
-            Path { path in
+            let line = Path { path in
                 guard values.count > 1 else { return }
                 for (index, value) in values.enumerated() {
                     let x = geo.size.width * CGFloat(index) / CGFloat(values.count - 1)
                     let normalised = span > 0 ? (value - low) / span : 0.5
-                    let y = inset + plot * (1 - CGFloat(normalised))
+                    // The stroke is centred on the path, so the highest and
+                    // lowest points need half a line width of room or they
+                    // draw flat against the edge.
+                    let y = 1.5 + max(geo.size.height - 3, 0) * (1 - CGFloat(normalised))
                     let point = CGPoint(x: x, y: y)
                     if index == 0 { path.move(to: point) } else { path.addLine(to: point) }
                 }
             }
-            .stroke(stroke, style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
+
+            let fill = Path { path in
+                guard values.count > 1 else { return }
+                path.addPath(line)
+                path.addLine(to: CGPoint(x: geo.size.width, y: geo.size.height))
+                path.addLine(to: CGPoint(x: 0, y: geo.size.height))
+                path.closeSubpath()
+            }
+
+            ZStack {
+                if mono {
+                    // The area wash and the blurred underlay are depth in
+                    // colour; flattened they are haze that eats the line. A
+                    // slightly heavier white stroke survives on its own, a
+                    // hairline being the first thing the mask loses.
+                    line.stroke(
+                        Color.white,
+                        style: StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round)
+                    )
+                } else {
+                    fill.fill(LinearGradient(
+                        colors: [color.opacity(0.30), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ))
+
+                    // A wide, blurred copy of the line behind the crisp one reads
+                    // as a glowing stroke rather than a flat one.
+                    line.stroke(color.opacity(0.55), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                        .blur(radius: 3)
+
+                    line.stroke(color, style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round))
+                }
+            }
         }
     }
 }
 
 struct Stat: View {
-    @Environment(\.widgetRenderingMode) private var mode
+    @Environment(\.widgetRenderingMode) private var renderingMode
     let label: String
     let value: String
+    var color: Color = GlassPalette.accentStart
+    var delta: TrendDelta? = nil
+    var secondary: String? = nil
+    /// Opt in to claiming an equal share of the row. Sized to its own text, a
+    /// row of these is only as wide as the longest value in it, so the tile
+    /// around them stopped short of its column while the trend lines below —
+    /// greedy, being `GeometryReader`-based — ran the full width. The tile
+    /// ending early and the lines not is what read as the layout being
+    /// skewed to the left.
+    var fillsWidth: Bool = false
+
+    private var mono: Bool { renderingMode.isMonochrome }
+    /// The metric accents are mid-tone, and a mid-tone is what the mask has
+    /// least room for. Once hue is gone the hierarchy has to come from
+    /// opacity, so each level of it gets a white at a different weight.
+    private func ink(_ opacity: Double) -> Color {
+        mono ? Color.white.opacity(opacity) : color.opacity(opacity)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(label)
-                // `.secondary` is a light grey. Vibrant rendering reads that
-                // as "nearly as bright as the panel" and the label goes with
-                // it, so once the colour is gone the hierarchy comes from
-                // opacity and weight instead.
-                .font(.system(size: 9, weight: mode.isMonochrome ? .semibold : .medium))
-                .foregroundStyle(mode.isMonochrome ? Color.white.opacity(0.78) : Color.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Text(value)
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                .foregroundStyle(mode.isMonochrome ? Color.white : Color.primary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                dot
+                Text(label)
+                    .font(.system(size: 9, weight: mono ? .semibold : .medium))
+                    .tracking(1.1)
+                    .foregroundStyle(ink(mono ? 0.75 : 0.9))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(value)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .foregroundStyle(.white)
+                if let delta, delta.direction != .flat {
+                    Text("\(delta.symbol)\(delta.magnitudeText)")
+                        .font(.system(size: 8, weight: .semibold, design: .rounded))
+                        .foregroundStyle(ink(mono ? 0.7 : 0.85))
+                }
+            }
+            if let secondary {
+                Text(secondary)
+                    .font(.system(size: 7.5, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .foregroundStyle(ink(mono ? 0.6 : 0.7))
+            }
         }
-        // Both labels and values vary in width, so cells claim an equal share
-        // of the row rather than each taking what its own text happens to
-        // need, which left the columns ragged.
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: fillsWidth ? CGFloat.infinity : nil, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var dot: some View {
+        let circle = Circle()
+            .fill(mono ? Color.white.opacity(0.8) : color)
+            .frame(width: 5, height: 5)
+
+        if mono {
+            circle
+        } else {
+            circle.shadow(color: color.opacity(0.9), radius: 2.5)
+        }
     }
 }
 
-struct Caption: View {
-    @Environment(\.widgetRenderingMode) private var mode
-    let text: String
+/// A small pill for the dashboard's readiness score, sitting under the
+/// recovery ring rather than taking a full stat row of its own.
+struct ReadinessBadge: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    let score: Double
+    let shortLabel: String
+    let color: Color
+
+    private var mono: Bool { renderingMode.isMonochrome }
 
     var body: some View {
-        Text(text)
-            .font(.system(size: 9, weight: mode.isMonochrome ? .semibold : .medium))
-            .foregroundStyle(mode.isMonochrome ? Color.white.opacity(0.78) : Color.secondary)
-            .lineLimit(1)
+        HStack(spacing: 3) {
+            dot
+            Text("\(shortLabel) \(String(format: "%.1f", score))")
+                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .foregroundStyle(mono ? Color.white.opacity(0.8) : color.opacity(0.9))
+        }
+    }
+
+    @ViewBuilder
+    private var dot: some View {
+        let circle = Circle()
+            .fill(mono ? Color.white.opacity(0.8) : color)
+            .frame(width: 5, height: 5)
+
+        if mono {
+            circle
+        } else {
+            circle.shadow(color: color.opacity(0.9), radius: 2.5)
+        }
     }
 }
 
 struct Unavailable: View {
-    @Environment(\.widgetRenderingMode) private var mode
     let message: String
-
-    private var ink: Color {
-        mode.isMonochrome ? Color.white.opacity(0.85) : Color.secondary
-    }
 
     var body: some View {
         VStack(spacing: 4) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 16))
+                .foregroundStyle(.white.opacity(0.55))
             Text(message)
                 .font(.system(size: 10))
                 .multilineTextAlignment(.center)
+                .foregroundStyle(.white.opacity(0.55))
         }
-        .foregroundStyle(ink)
         .padding(6)
-        // Centre the message in the widget instead of leaving it wherever the
-        // parent's alignment happens to put it.
+        // Centre the message in the widget rather than leaving it wherever
+        // the parent's alignment happens to put it.
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// A horizontal meter, for a figure with a natural ceiling: sleep against the
+/// night's need, day strain against a maxed-out day, readiness out of ten. A
+/// number alone says what happened; the bar says how much of the thing it is.
+struct MeterBar: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    let label: String
+    let value: String
+    /// 0…1, or nil when the figure has not been scored — an unscored metric
+    /// draws an empty track rather than a full bar at zero.
+    let fraction: Double?
+    var color: Color = GlassPalette.accentStart
+    var caption: String? = nil
+    var height: CGFloat = 5
+
+    private var mono: Bool { renderingMode.isMonochrome }
+
+    private func ink(_ opacity: Double) -> Color {
+        mono ? Color.white.opacity(opacity) : color.opacity(opacity)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(label)
+                    .font(.system(size: 8.5, weight: mono ? .semibold : .medium))
+                    .tracking(1.0)
+                    .foregroundStyle(ink(mono ? 0.75 : 0.9))
+                Spacer(minLength: 4)
+                Text(value)
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                if let caption {
+                    Text(caption)
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundStyle(ink(mono ? 0.6 : 0.75))
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+
+            track
+        }
+    }
+
+    private var track: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.white.opacity(mono ? 0.22 : 0.12))
+                if let fraction {
+                    // A hairline of fill at a near-zero fraction still reads as
+                    // "scored, but barely", which an empty track does not.
+                    Capsule()
+                        .fill(mono ? AnyShapeStyle(Color.white.opacity(0.85))
+                                   : AnyShapeStyle(LinearGradient(
+                                        colors: [color.opacity(0.65), color],
+                                        startPoint: .leading, endPoint: .trailing)))
+                        .frame(width: max(geo.size.width * CGFloat(fraction), 3))
+                }
+            }
+        }
+        .frame(height: height)
+    }
+}
+
+/// One labelled row of a trend section: what the metric is, where it stands
+/// now, the shape of the last week, and the average and range that shape is
+/// drawn against. A sparkline on its own has no scale; this gives it one.
+struct TrendRow: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    let label: String
+    let value: String
+    let points: [TrendPoint]
+    let color: Color
+    var delta: TrendDelta? = nil
+    /// "avg 62% · 41–88%", built by the caller since each metric rounds and
+    /// suffixes differently.
+    var detail: String? = nil
+    var labelWidth: CGFloat = 58
+    var detailWidth: CGFloat = 92
+    /// The large layout drops this a couple of points when it has to fit more
+    /// rows into the same canvas; see `LargeView`.
+    var height: CGFloat = 24
+
+    private var mono: Bool { renderingMode.isMonochrome }
+
+    private func ink(_ opacity: Double) -> Color {
+        mono ? Color.white.opacity(opacity) : color.opacity(opacity)
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label)
+                    .font(.system(size: 8, weight: mono ? .semibold : .medium))
+                    .tracking(0.9)
+                    .foregroundStyle(ink(mono ? 0.75 : 0.9))
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text(value)
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
+                    if let delta, delta.direction != .flat {
+                        Text("\(delta.symbol)\(delta.magnitudeText)")
+                            .font(.system(size: 7.5, weight: .semibold, design: .rounded))
+                            .foregroundStyle(ink(mono ? 0.7 : 0.85))
+                    }
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(width: labelWidth, alignment: .leading)
+
+            // A single point has no line to draw, so the row keeps its place
+            // in the stack and shows the figures without a shape.
+            if points.count > 1 {
+                Sparkline(points: points, color: color)
+                    .frame(maxWidth: .infinity)
+            } else {
+                Spacer(minLength: 0)
+            }
+
+            if let detail {
+                Text(detail)
+                    .font(.system(size: 7.5, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .foregroundStyle(Color.white.opacity(mono ? 0.6 : 0.5))
+                    .frame(width: detailWidth, alignment: .trailing)
+            }
+        }
+        .frame(height: height)
+    }
+}
+
+/// A small caps heading with a hairline running out to the edge, for dividing
+/// the large layout into sections that a glance can skip between.
+struct SectionHeader: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    let title: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(title)
+                .font(.system(size: 8, weight: .semibold))
+                .tracking(1.2)
+                .foregroundStyle(Color.white.opacity(renderingMode.isMonochrome ? 0.7 : 0.55))
+            Rectangle()
+                .fill(Color.white.opacity(renderingMode.isMonochrome ? 0.2 : 0.12))
+                .frame(height: 1)
+        }
     }
 }

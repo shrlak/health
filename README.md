@@ -279,8 +279,10 @@ Notes worth keeping in mind if you change any of it:
 
 ## The Mac widget
 
-A native WidgetKit widget for the Notification Center and the desktop, showing
-recovery, strain and sleep at a glance.
+A native WidgetKit widget for the Notification Center and the desktop, in every
+size macOS offers. The size is picked when the widget is dragged out, and each
+one shows as much as it has room for: small is the glance, large is the whole
+summary.
 
 ```
 small                          medium
@@ -291,7 +293,38 @@ small                          medium
 │ STRAIN  5.0  │               │ RECOVERY ╱╲__╱‾╲__╱‾           │
 │ SLEEP   9h32 │               │                                │
 └──────────────┘               └────────────────────────────────┘
+
+large                                  extra large
+┌────────────────────────────────┐     ┌──────────────────────────────────────┐
+│ WHOOP               Sun 14 Sep │     │ WHOOP                     Sun 14 Sep │
+│  ◜◝   RECOVERY ↑6 vs recent    │     │  ◜◝  RECOVERY ↑6 │ LAST 7 DAYS       │
+│ ◟  ◞  Ready                    │     │ ◟  ◞ Ready       │ RECOVERY ╱╲_╱ avg │
+│  82%  READINESS         7.8/10 │     │  82% READINESS   │ STRAIN   ╱╲_╱ avg │
+│       ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░     │     │      ▓▓▓▓▓▓░░░░  │ SLEEP    ╱╲_╱ avg │
+│ ┌────────────────────────────┐ │     │ ┌──────────────┐ │ HRV      ╱╲_╱ avg │
+│ │ STRAIN 5.0   │ SLEEP 9h32  │ │     │ │ STRAIN │SLEEP│ │ RHR      ╱╲_╱ avg │
+│ │ 1842 kcal    │ 92% · 88%   │ │     │ │ HRV    │ RHR │ │                   │
+│ │ HRV 84 ms ↑3 │ RHR 45 ↓1   │ │     │ │ AVG HR │PEAK │ │                   │
+│ │ AVG HR 64    │ PEAK HR 141 │ │     │ └──────────────┘ │                   │
+│ └────────────────────────────┘ │     │ SLEEP VS NEED    │                   │
+│ SLEEP VS NEED  9h32 of 8h37    │     │ DAY STRAIN       │                   │
+│ DAY STRAIN     5.0 of 21       │     │                  │                   │
+│ LAST 7 DAYS ────────────────── │     │ Updated 08:42 · 30 days logged       │
+│ RECOVERY 82% ╱╲_╱ avg 62% 41–88│     └──────────────────────────────────────┘
+│ STRAIN  5.0  ╱╲_╱ avg 9.4      │
+│ SLEEP   9h32 ╱╲_╱ avg 7h10     │
+│ Updated 08:42 · 30 days logged │
+└────────────────────────────────┘
 ```
+
+The large sizes add what the small ones have no room for: the readiness score
+as a meter rather than a badge, calories and the average and peak heart rate
+behind the strain number, the night measured against the need Whoop calculated
+for it, the day's strain against a maxed-out one, and a labelled week of every
+metric — each sparkline captioned with its own average and range, so the shape
+has a scale. A widget cannot scroll and clips whatever does not fit, so the
+large layout offers itself at several densities and the richest one that fits
+the canvas is the one drawn.
 
 The source is in [`mac-widget/`](mac-widget/). macOS only offers widgets that
 ship inside an installed app, so it is built once on the machine that runs it:
