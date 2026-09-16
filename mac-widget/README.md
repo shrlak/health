@@ -1,7 +1,7 @@
 # Whoop widget for macOS
 
 A Notification Center / desktop widget showing today's recovery, strain and
-sleep, in every size macOS offers. The size is chosen when you drag it out, and
+sleep, in all three sizes macOS offers. The size is chosen when you drag it out, and
 each one carries as much as it has room for: the small size is a glance, the
 large size is the whole summary — heart rate, sleep against need, and a
 labelled week of every metric.
@@ -131,10 +131,10 @@ same panel opens from clicking the clock in the menu bar and scrolling to the
 bottom.) Search for **Whoop** in the list on the left, then drag the size you
 want onto the desktop or into Notification Center.
 
-The size panel shows every size this Mac offers — small, medium and large, plus
-extra large where the system supports it. To change your mind later, right-click
-the widget you placed and choose **Edit Widget**, or drag it out and drop a
-different size in its place. Nothing stops you keeping two at once: a small one
+The size panel shows the three sizes macOS has: small, medium and large.
+(Extra large is an iPad size; WidgetKit does not offer it to a Mac at all.) To
+change your mind later, right-click the widget you placed and choose **Edit
+Widget**, or drag it out and drop a different size in its place. Nothing stops you keeping two at once: a small one
 in Notification Center and a large one on the desktop read the same endpoint.
 
 ## If something goes wrong
@@ -175,20 +175,20 @@ assuming today.
 
 ## What each size shows
 
-| | Small | Medium | Large | Extra large |
-| --- | --- | --- | --- | --- |
-| Recovery ring | ● | ● | ● | ● |
-| Strain, sleep | ● | ● | ● | ● |
-| Day being shown | | ● | ● | ● |
-| HRV, resting heart rate | | ● | ● | ● |
-| Readiness | | badge | meter, out of ten | meter, out of ten |
-| Calories | | ● | ● | ● |
-| Average and peak heart rate | | | ● | ● |
-| Sleep against the night's need | | | ● | ● |
-| Day strain against a maxed-out day | | | ● | ● |
-| Trend lines | | 3, unlabelled | up to 5, labelled | 5, labelled |
-| Seven-day average and range per metric | | | ● | ● |
-| When it last refreshed | | | ● | ● |
+| | Small | Medium | Large |
+| --- | --- | --- | --- |
+| Recovery ring | ● | ● | ● |
+| Strain, sleep | ● | ● | ● |
+| Day being shown | | ● | ● |
+| HRV, resting heart rate | | ● | ● |
+| Readiness | | badge | meter, out of ten |
+| Calories | | ● | ● |
+| Average and peak heart rate | | | ● |
+| Sleep against the night's need | | | ● |
+| Day strain against a maxed-out day | | | ● |
+| Trend lines | | 3, unlabelled | up to 5, labelled |
+| Seven-day average and range per metric | | | ● |
+| When it last refreshed | | | ● |
 
 ```
 small                          medium
@@ -226,10 +226,6 @@ large
 │ Updated 08:42 · 30 days logged │
 └────────────────────────────────┘
 ```
-
-Extra large is the same sections side by side — the ring, the numbers and the
-meters in the left column, the whole trend section in the right — rather than a
-taller stack that would leave half of it empty.
 
 ### Why the large size sometimes shows fewer trend lines
 
