@@ -430,8 +430,8 @@ function testSummary() {
   console.log('\nWidget summary')
 
   const cycles = [
-    { day: '2026-03-01', strain: 13.24, avg_hr: 78, max_hr: 172 },
-    { day: '2026-03-02', strain: 8.1, avg_hr: 64, max_hr: 141 },
+    { day: '2026-03-01', strain: 13.24, avg_hr: 78, max_hr: 172, kilojoules: 12100 },
+    { day: '2026-03-02', strain: 8.1, avg_hr: 64, max_hr: 141, kilojoules: 8400 },
   ]
   const recovery = [
     { day: '2026-03-01', recovery_pct: 44, hrv_ms: 31.8, resting_hr: 64 },
@@ -465,10 +465,20 @@ function testSummary() {
   check('trends resting heart rate',
     s.restingHrTrend.map((p) => p.value).join(',') === '64,55', s.restingHrTrend)
 
+  // The calories ring is drawn against this window's high, and the two heart
+  // rates get a trend line each, so all three need a series of their own.
+  check('converts kilojoules to kcal', s.calories === 2008, s.calories)
+  check('trends calories in kcal',
+    s.caloriesTrend.map((p) => p.value).join(',') === '2892,2008', s.caloriesTrend)
+  check('trends average heart rate',
+    s.avgHrTrend.map((p) => p.value).join(',') === '78,64', s.avgHrTrend)
+  check('trends peak heart rate',
+    s.maxHrTrend.map((p) => p.value).join(',') === '172,141', s.maxHrTrend)
+
   // Whoop scores a night on waking, so the newest day often has a recovery
   // before it has any strain. The widget must show what exists, not go blank.
   const partial = summarise(
-    [{ day: '2026-03-01', strain: 13.24, avg_hr: 78, max_hr: 172 }],
+    [{ day: '2026-03-01', strain: 13.24, avg_hr: 78, max_hr: 172, kilojoules: 12100 }],
     [{ day: '2026-03-02', recovery_pct: 71, hrv_ms: 52.4, resting_hr: 55 }],
     [],
   )
@@ -501,8 +511,10 @@ function testSummary() {
   check('survives an account with no data', empty.day === null, empty.day)
   check('returns empty trends, not null', empty.recoveryTrend.length === 0, empty.recoveryTrend)
   check('returns every trend empty, not null',
-    empty.sleepTrend.length === 0 && empty.restingHrTrend.length === 0 && empty.hrvTrend.length === 0,
-    [empty.sleepTrend, empty.restingHrTrend, empty.hrvTrend])
+    empty.sleepTrend.length === 0 && empty.restingHrTrend.length === 0 &&
+    empty.hrvTrend.length === 0 && empty.caloriesTrend.length === 0 &&
+    empty.avgHrTrend.length === 0 && empty.maxHrTrend.length === 0,
+    [empty.sleepTrend, empty.caloriesTrend, empty.avgHrTrend])
 }
 
 function main() {

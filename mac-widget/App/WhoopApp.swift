@@ -13,7 +13,7 @@ struct WhoopApp: App {
         WindowGroup {
             ContentView()
         }
-        .defaultSize(width: 620, height: 720)
+        .defaultSize(width: 780, height: 880)
     }
 }
 
@@ -68,10 +68,14 @@ struct ContentView: View {
             }
         }
         .padding(20)
+        // Those views are written in sizes budgeted for a widget, where the
+        // captions are fine print on a desktop. Nothing here is fighting for
+        // room, so the whole scale goes up together.
+        .environment(\.glassTextScale, 1.45)
         // A readable column rather than the whole window. Stretched across a
         // wide window the trend rows pulled their captions hundreds of points
         // away from the line they describe, which is its own kind of skew.
-        .frame(maxWidth: 620, alignment: .topLeading)
+        .frame(maxWidth: 780, alignment: .topLeading)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(GlassBackground())
         .task { await load() }
@@ -81,22 +85,20 @@ struct ContentView: View {
     /// come to find out why the widget looks wrong — a value missing here is a
     /// value the endpoint did not return, not a layout that dropped it.
     ///
-    /// Everything inside the card shares one left edge and one width. An
-    /// earlier version had two: the stats were indented into a column beside
-    /// the ring while the meters and trends spanned the card, and within the
-    /// stats four cells were sized to their own text while two spanned the
-    /// row. Three competing widths in one card is what read as skew.
+    /// Everything inside the card shares one left edge and one width, and
+    /// every figure with a ceiling is a ring, so the top of the window can be
+    /// read without being parsed.
     @ViewBuilder
     private func loaded(_ summary: Summary) -> some View {
         GlassCard(cornerRadius: 16) {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 18) {
                 header(summary)
-                hero(summary)
-                statGrid(summary)
-                trends(summary)
+                rings(summary)
+                dayTrends(summary)
+                heart(summary)
                 footer(summary)
             }
-            .padding(16)
+            .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -104,114 +106,81 @@ struct ContentView: View {
     private func header(_ summary: Summary) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(summary.dayText)
-                .font(.headline)
-                .foregroundStyle(.white.opacity(0.85))
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.9))
             Spacer(minLength: 8)
             Text(summary.readinessLongLabel)
-                .font(.subheadline.weight(.semibold))
+                .font(.headline)
                 .foregroundStyle(summary.readinessColor)
         }
         .lineLimit(1)
     }
 
-    /// The ring gets a column exactly its own width, and the meters sit beside
-    /// it. Left alone in a full-height column the ring floated in its own dead
-    /// space, centred against a stack twice its height.
-    private func hero(_ summary: Summary) -> some View {
-        HStack(alignment: .top, spacing: 18) {
-            VStack(spacing: 8) {
-                RecoveryRing(
-                    fraction: summary.recoveryFraction,
-                    color: summary.recoveryColor,
-                    label: summary.recoveryText,
-                    lineWidth: 11,
-                    labelSize: 24
-                )
-                .frame(width: 104, height: 104)
+    /// Everything with a ceiling, drawn as the same shape so the row can be
+    /// compared across rather than read down: recovery out of a hundred,
+    /// readiness out of ten, the night against the need Whoop set for it,
+    /// strain against a maxed-out day, and the calories against the hardest
+    /// day in the window — the only one of the five whose ceiling is not a
+    /// fixed number, since a day's burn has none of its own.
+    private func rings(_ summary: Summary) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            RingGauge(
+                title: "RECOVERY",
+                value: summary.recoveryText,
+                caption: summary.recoveryDelta.map { "\($0.symbol)\($0.magnitudeText) vs recent" },
+                fraction: summary.recoveryRingFraction,
+                color: summary.recoveryColor,
+                diameter: 92, lineWidth: 11, valueSize: 24
+            )
+            .frame(maxWidth: .infinity)
 
-                Text("RECOVERY")
-                    .font(.system(size: 9, weight: .medium))
-                    .tracking(1.1)
-                    .foregroundStyle(summary.recoveryColor.opacity(0.9))
-            }
-            .frame(width: 104)
+            RingGauge(
+                title: "READINESS",
+                value: summary.readinessText,
+                caption: "of 10",
+                fraction: summary.readinessFraction,
+                color: summary.readinessColor,
+                diameter: 76, lineWidth: 9, valueSize: 20
+            )
+            .frame(maxWidth: .infinity)
 
-            VStack(alignment: .leading, spacing: 12) {
-                if let readiness = summary.readiness {
-                    MeterBar(
-                        label: "READINESS",
-                        value: "\(summary.readinessText)/10",
-                        fraction: summary.readinessFraction,
-                        color: summary.readinessColor,
-                        height: 6
-                    )
-                    .accessibilityLabel("Readiness \(String(format: "%.1f", readiness)) out of ten")
-                }
-                MeterBar(
-                    label: "SLEEP VS NEED",
-                    value: "\(summary.sleepText) of \(summary.sleepNeedText)",
-                    fraction: summary.sleepFraction,
-                    color: MetricPalette.sleep,
-                    caption: summary.sleepBalanceText,
-                    height: 6
-                )
-                MeterBar(
-                    label: "DAY STRAIN",
-                    value: "\(summary.strainText) of 21",
-                    fraction: summary.strainFraction,
-                    color: MetricPalette.strain,
-                    caption: summary.strainWeek.map { "7d avg \($0.averageText(decimals: 1))" },
-                    height: 6
-                )
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            RingGauge(
+                title: "SLEEP",
+                value: summary.sleepText,
+                caption: summary.sleepNeedMin != nil ? "of \(summary.sleepNeedText)" : nil,
+                fraction: summary.sleepFraction,
+                color: MetricPalette.sleep,
+                diameter: 76, lineWidth: 9, valueSize: 16
+            )
+            .frame(maxWidth: .infinity)
+
+            RingGauge(
+                title: "STRAIN",
+                value: summary.strainText,
+                caption: "of 21",
+                fraction: summary.strainFraction,
+                color: MetricPalette.strain,
+                diameter: 76, lineWidth: 9, valueSize: 20
+            )
+            .frame(maxWidth: .infinity)
+
+            RingGauge(
+                title: "CALORIES",
+                value: summary.calories.map { "\(Int($0.rounded()))" } ?? "—",
+                caption: summary.caloriesCeilingText ?? "kcal",
+                fraction: summary.caloriesFraction,
+                color: GlassPalette.accentStart,
+                diameter: 76, lineWidth: 9, valueSize: 17
+            )
+            .frame(maxWidth: .infinity)
         }
     }
 
-    /// Two equal columns, every cell claiming its share. Sized to their own
-    /// text the rows each ended wherever their value stopped, so the block had
-    /// a ragged right edge and no column to read down.
-    private func statGrid(_ summary: Summary) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 16) {
-                Stat(
-                    label: "STRAIN", value: summary.strainText,
-                    color: MetricPalette.strain, delta: summary.strainDelta,
-                    secondary: summary.calories != nil ? summary.caloriesText : nil,
-                    fillsWidth: true
-                )
-                Stat(
-                    label: "SLEEP", value: summary.sleepText,
-                    color: MetricPalette.sleep, delta: summary.sleepDelta,
-                    secondary: summary.sleepSecondaryText,
-                    fillsWidth: true
-                )
-            }
-            HStack(alignment: .top, spacing: 16) {
-                Stat(
-                    label: "HRV", value: summary.hrvText,
-                    color: MetricPalette.hrv, delta: summary.hrvDelta,
-                    secondary: summary.hrvWeek.map { "7d avg \($0.averageText()) ms" },
-                    fillsWidth: true
-                )
-                Stat(
-                    label: "RESTING HR", value: summary.restingHrText,
-                    color: MetricPalette.restingHR, delta: summary.restingHrDelta,
-                    secondary: summary.restingHrWeek.map { "7d avg \($0.averageText()) bpm" },
-                    fillsWidth: true
-                )
-            }
-            HStack(alignment: .top, spacing: 16) {
-                Stat(label: "AVG HR", value: summary.avgHrText,
-                     color: GlassPalette.accentStart, fillsWidth: true)
-                Stat(label: "PEAK HR", value: summary.maxHrText,
-                     color: GlassPalette.accentEnd, fillsWidth: true)
-            }
-        }
-    }
-
+    /// Recovery, strain and sleep over the week. The three heart metrics get
+    /// their own section below rather than sharing this one, since they are
+    /// read together and against each other.
     @ViewBuilder
-    private func trends(_ summary: Summary) -> some View {
+    private func dayTrends(_ summary: Summary) -> some View {
         if summary.recoveryWeek != nil || summary.strainWeek != nil || summary.sleepWeek != nil {
             VStack(alignment: .leading, spacing: 6) {
                 SectionHeader(title: "LAST 7 DAYS")
@@ -220,8 +189,7 @@ struct ContentView: View {
                         label: "RECOVERY", value: summary.recoveryText,
                         points: Array(summary.recoveryTrend.suffix(7)),
                         color: summary.recoveryColor, delta: summary.recoveryDelta,
-                        detail: "avg \(week.averageText(unit: "%")) · \(week.rangeText(unit: "%"))",
-                        height: 28
+                        detail: "avg \(week.averageText(unit: "%")) · \(week.rangeText(unit: "%"))"
                     )
                 }
                 if let week = summary.strainWeek {
@@ -230,7 +198,7 @@ struct ContentView: View {
                         points: Array(summary.strainTrend.suffix(7)),
                         color: MetricPalette.strain, delta: summary.strainDelta,
                         detail: "avg \(week.averageText(decimals: 1)) · \(week.rangeText(decimals: 1))",
-                        height: 28
+                        style: .bars
                     )
                 }
                 if let week = summary.sleepWeek {
@@ -238,17 +206,36 @@ struct ContentView: View {
                         label: "SLEEP", value: summary.sleepText,
                         points: Array(summary.sleepTrendPoints.suffix(7)),
                         color: MetricPalette.sleep, delta: summary.sleepDelta,
-                        detail: "avg \(durationText(week.average)) · \(durationText(week.low))–\(durationText(week.high))",
-                        height: 28
+                        detail: "avg \(durationText(week.average)) · \(durationText(week.low))–\(durationText(week.high))"
                     )
                 }
+            }
+        }
+    }
+
+    /// The four heart metrics, each with its number, how it moved, and a week
+    /// of it. None has a ceiling to be drawn against, so each is shown against
+    /// its own recent range instead.
+    @ViewBuilder
+    private func heart(_ summary: Summary) -> some View {
+        if summary.hrvWeek != nil || summary.restingHrWeek != nil
+            || summary.avgHrWeek != nil || summary.maxHrWeek != nil {
+            VStack(alignment: .leading, spacing: 6) {
+                SectionHeader(title: "HEART")
+
+                HeartRateRange(
+                    resting: summary.restingHr,
+                    average: summary.avgHr,
+                    peak: summary.maxHr,
+                    trackHeight: 9
+                )
+
                 if let week = summary.hrvWeek {
                     TrendRow(
                         label: "HRV", value: summary.hrvText,
                         points: Array(summary.hrvTrendPoints.suffix(7)),
                         color: MetricPalette.hrv, delta: summary.hrvDelta,
-                        detail: "avg \(week.averageText(unit: " ms")) · \(week.rangeText())",
-                        height: 28
+                        detail: "avg \(week.averageText(unit: " ms")) · \(week.rangeText())"
                     )
                 }
                 if let week = summary.restingHrWeek {
@@ -256,8 +243,23 @@ struct ContentView: View {
                         label: "RESTING HR", value: summary.restingHrText,
                         points: Array(summary.restingHrTrendPoints.suffix(7)),
                         color: MetricPalette.restingHR, delta: summary.restingHrDelta,
-                        detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())",
-                        height: 28
+                        detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
+                    )
+                }
+                if let week = summary.avgHrWeek {
+                    TrendRow(
+                        label: "AVG HR", value: summary.avgHrText,
+                        points: Array(summary.avgHrTrendPoints.suffix(7)),
+                        color: GlassPalette.accentStart, delta: summary.avgHrDelta,
+                        detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
+                    )
+                }
+                if let week = summary.maxHrWeek {
+                    TrendRow(
+                        label: "PEAK HR", value: summary.maxHrText,
+                        points: Array(summary.maxHrTrendPoints.suffix(7)),
+                        color: GlassPalette.accentEnd, delta: summary.maxHrDelta,
+                        detail: "avg \(week.averageText(unit: " bpm")) · \(week.rangeText())"
                     )
                 }
             }
@@ -268,8 +270,8 @@ struct ContentView: View {
     private func footer(_ summary: Summary) -> some View {
         if let updated = summary.updatedAtText {
             Text("\(updated) · \(summary.loggedDays) days logged")
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.45))
+                .font(.callout)
+                .foregroundStyle(.white.opacity(0.5))
         }
     }
 
