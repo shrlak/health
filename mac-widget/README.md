@@ -1,7 +1,10 @@
 # Whoop widget for macOS
 
 A Notification Center / desktop widget showing today's recovery, strain and
-sleep, plus a fourteen-day recovery trend on the medium size.
+sleep, in every size macOS offers. The size is chosen when you drag it out, and
+each one carries as much as it has room for: the small size is a glance, the
+large size is the whole summary — heart rate, sleep against need, and a
+labelled week of every metric.
 
 It reads one endpoint — `whoop-widget` — with a read-only token. The token can
 do nothing but fetch that summary: it cannot write data and cannot reach the
@@ -125,8 +128,14 @@ somewhere stable:
 
 Right-click anywhere on the desktop wallpaper and choose **Edit Widgets**. (The
 same panel opens from clicking the clock in the menu bar and scrolling to the
-bottom.) Search for **Whoop** in the list on the left, then drag either size
-onto the desktop or into Notification Center.
+bottom.) Search for **Whoop** in the list on the left, then drag the size you
+want onto the desktop or into Notification Center.
+
+The size panel shows every size this Mac offers — small, medium and large, plus
+extra large where the system supports it. To change your mind later, right-click
+the widget you placed and choose **Edit Widget**, or drag it out and drop a
+different size in its place. Nothing stops you keeping two at once: a small one
+in Notification Center and a large one on the desktop read the same endpoint.
 
 ## If something goes wrong
 
@@ -136,6 +145,8 @@ onto the desktop or into Notification Center.
 | Widget says **Add your token in Config.swift** | `setup.sh` ran without a token. Run it again and paste one. |
 | Widget says **Token rejected** | The token was revoked or mistyped. Create a new one on Connections and re-run `setup.sh`. |
 | Widget says **Nothing synced yet** | The token works but the account has no Whoop data in the last two weeks. |
+| The large size shows fewer trend lines than the screenshot | Expected. It fits itself to the canvas your Mac gives it; see [Why the large size sometimes shows fewer trend lines](#why-the-large-size-sometimes-shows-fewer-trend-lines). |
+| Average and peak heart rate show a dash | Those two arrived with the large size. The widget is newer than the deployed `whoop-widget` function — redeploy it (`supabase functions deploy whoop-widget`) and the next refresh fills them in. |
 | Widget is blank or stuck on placeholder text | Open the Whoop app. It fetches the same endpoint the same way and has room to say what failed. |
 | **Whoop** is not in the Edit Widgets list | The app has not been run from a stable location. Do step 7. |
 | The number looks stale | WidgetKit budgets refreshes. Open the app and press **Refresh**, which reloads every timeline. |
@@ -161,7 +172,22 @@ Whoop scores a night when you wake, so the newest complete day is often
 yesterday's date — the widget labels which day it is showing rather than
 assuming today.
 
-## Layout
+## What each size shows
+
+| | Small | Medium | Large | Extra large |
+| --- | --- | --- | --- | --- |
+| Recovery ring | ● | ● | ● | ● |
+| Strain, sleep | ● | ● | ● | ● |
+| Day being shown | | ● | ● | ● |
+| HRV, resting heart rate | | ● | ● | ● |
+| Readiness | | badge | meter, out of ten | meter, out of ten |
+| Calories | | ● | ● | ● |
+| Average and peak heart rate | | | ● | ● |
+| Sleep against the night's need | | | ● | ● |
+| Day strain against a maxed-out day | | | ● | ● |
+| Trend lines | | 3, unlabelled | up to 5, labelled | 5, labelled |
+| Seven-day average and range per metric | | | ● | ● |
+| When it last refreshed | | | ● | ● |
 
 ```
 small                          medium
@@ -172,7 +198,48 @@ small                          medium
 │ STRAIN  5.0  │               │ RECOVERY ╱╲__╱‾╲__╱‾           │
 │ SLEEP   9h32 │               │                                │
 └──────────────┘               └────────────────────────────────┘
+
+large
+┌────────────────────────────────┐
+│ WHOOP               Sun 14 Sep │
+│  ◜◝   RECOVERY ↑6 vs recent    │
+│ ◟  ◞  Ready                    │
+│  82%  READINESS         7.8/10 │
+│       ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░     │
+│ ┌────────────────────────────┐ │
+│ │ STRAIN 5.0   │ SLEEP 9h32  │ │
+│ │ 1842 kcal    │ 92% · 88%   │ │
+│ │ HRV 84 ms ↑3 │ RHR 45 ↓1   │ │
+│ │ AVG HR 64    │ PEAK HR 141 │ │
+│ └────────────────────────────┘ │
+│ SLEEP VS NEED  9h32 of 8h37    │
+│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  55m over│
+│ DAY STRAIN     5.0 of 21       │
+│ ▓▓▓▓▓░░░░░░░░░░░░░  7d avg 9.4 │
+│ LAST 7 DAYS ────────────────── │
+│ RECOVERY 82% ╱╲_╱ avg 62% 41–88│
+│ STRAIN  5.0  ╱╲_╱ avg 9.4      │
+│ SLEEP   9h32 ╱╲_╱ avg 7h10     │
+│ HRV     84ms ╱╲_╱ avg 71 ms    │
+│ RHR     45   ╱╲_╱ avg 48 bpm   │
+│ Updated 08:42 · 30 days logged │
+└────────────────────────────────┘
 ```
+
+Extra large is the same sections side by side — the ring, the numbers and the
+meters in the left column, the whole trend section in the right — rather than a
+taller stack that would leave half of it empty.
+
+### Why the large size sometimes shows fewer trend lines
+
+A widget cannot scroll, and it clips whatever does not fit instead of shrinking
+it. macOS also does not hand every Mac the same canvas for a large widget. So
+the large layout is written once and offered at several densities — five trend
+rows down to none, with the ring and the gaps tightening as it goes — and
+`ViewThatFits` draws the richest one that actually fits. The day's own numbers
+are in every variant; the trend rows are what gets dropped first, from the
+bottom up, since the two at the bottom are also shown as figures in the tile
+above.
 
 ## When the desktop is not in front
 
@@ -213,7 +280,7 @@ account with nothing synced yet, or no network.
 | `project.yml` | The Xcode project, as a spec. Generated into `Whoop.xcodeproj` by `xcodegen`. |
 | `Shared/Summary.swift` | The response model, the fetch, and the display formatting. |
 | `Shared/Views.swift` | The ring, sparkline and stat views, shared by the app and the widget. |
-| `Widget/WhoopWidget.swift` | The timeline provider and the two widget layouts. |
+| `Widget/WhoopWidget.swift` | The timeline provider and the widget layouts, one per size. |
 | `App/WhoopApp.swift` | The container app, which is also the diagnostic window. |
 | `Config.example.swift` | Template for `Shared/Config.swift`. |
 

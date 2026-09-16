@@ -142,6 +142,10 @@ struct RecoveryRing: View {
     let color: Color
     let label: String
     var lineWidth: CGFloat = 9
+    /// The percentage in the middle does not scale with the frame on its own,
+    /// so the larger layouts pass a larger size rather than getting a small
+    /// number floating in a big ring.
+    var labelSize: CGFloat = 20
 
     private var mono: Bool { renderingMode.isMonochrome }
     /// White is the brightest thing the vibrant mask can be handed, so it is
@@ -174,7 +178,7 @@ struct RecoveryRing: View {
                 .rotationEffect(.degrees(-90))
 
             Text(label)
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .font(.system(size: labelSize, weight: .semibold, design: .rounded))
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
                 .foregroundStyle(.white)
@@ -389,5 +393,157 @@ struct Unavailable: View {
         // Centre the message in the widget rather than leaving it wherever
         // the parent's alignment happens to put it.
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// A horizontal meter, for a figure with a natural ceiling: sleep against the
+/// night's need, day strain against a maxed-out day, readiness out of ten. A
+/// number alone says what happened; the bar says how much of the thing it is.
+struct MeterBar: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    let label: String
+    let value: String
+    /// 0…1, or nil when the figure has not been scored — an unscored metric
+    /// draws an empty track rather than a full bar at zero.
+    let fraction: Double?
+    var color: Color = GlassPalette.accentStart
+    var caption: String? = nil
+    var height: CGFloat = 5
+
+    private var mono: Bool { renderingMode.isMonochrome }
+
+    private func ink(_ opacity: Double) -> Color {
+        mono ? Color.white.opacity(opacity) : color.opacity(opacity)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(label)
+                    .font(.system(size: 8.5, weight: mono ? .semibold : .medium))
+                    .tracking(1.0)
+                    .foregroundStyle(ink(mono ? 0.75 : 0.9))
+                Spacer(minLength: 4)
+                Text(value)
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                if let caption {
+                    Text(caption)
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundStyle(ink(mono ? 0.6 : 0.75))
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+
+            track
+        }
+    }
+
+    private var track: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.white.opacity(mono ? 0.22 : 0.12))
+                if let fraction {
+                    // A hairline of fill at a near-zero fraction still reads as
+                    // "scored, but barely", which an empty track does not.
+                    Capsule()
+                        .fill(mono ? AnyShapeStyle(Color.white.opacity(0.85))
+                                   : AnyShapeStyle(LinearGradient(
+                                        colors: [color.opacity(0.65), color],
+                                        startPoint: .leading, endPoint: .trailing)))
+                        .frame(width: max(geo.size.width * CGFloat(fraction), 3))
+                }
+            }
+        }
+        .frame(height: height)
+    }
+}
+
+/// One labelled row of a trend section: what the metric is, where it stands
+/// now, the shape of the last week, and the average and range that shape is
+/// drawn against. A sparkline on its own has no scale; this gives it one.
+struct TrendRow: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    let label: String
+    let value: String
+    let points: [TrendPoint]
+    let color: Color
+    var delta: TrendDelta? = nil
+    /// "avg 62% · 41–88%", built by the caller since each metric rounds and
+    /// suffixes differently.
+    var detail: String? = nil
+    var labelWidth: CGFloat = 58
+    var detailWidth: CGFloat = 92
+    /// The large layout drops this a couple of points when it has to fit more
+    /// rows into the same canvas; see `LargeView`.
+    var height: CGFloat = 24
+
+    private var mono: Bool { renderingMode.isMonochrome }
+
+    private func ink(_ opacity: Double) -> Color {
+        mono ? Color.white.opacity(opacity) : color.opacity(opacity)
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label)
+                    .font(.system(size: 8, weight: mono ? .semibold : .medium))
+                    .tracking(0.9)
+                    .foregroundStyle(ink(mono ? 0.75 : 0.9))
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text(value)
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
+                    if let delta, delta.direction != .flat {
+                        Text("\(delta.symbol)\(delta.magnitudeText)")
+                            .font(.system(size: 7.5, weight: .semibold, design: .rounded))
+                            .foregroundStyle(ink(mono ? 0.7 : 0.85))
+                    }
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(width: labelWidth, alignment: .leading)
+
+            // A single point has no line to draw, so the row keeps its place
+            // in the stack and shows the figures without a shape.
+            if points.count > 1 {
+                Sparkline(points: points, color: color)
+                    .frame(maxWidth: .infinity)
+            } else {
+                Spacer(minLength: 0)
+            }
+
+            if let detail {
+                Text(detail)
+                    .font(.system(size: 7.5, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .foregroundStyle(Color.white.opacity(mono ? 0.6 : 0.5))
+                    .frame(width: detailWidth, alignment: .trailing)
+            }
+        }
+        .frame(height: height)
+    }
+}
+
+/// A small caps heading with a hairline running out to the edge, for dividing
+/// the large layout into sections that a glance can skip between.
+struct SectionHeader: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    let title: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(title)
+                .font(.system(size: 8, weight: .semibold))
+                .tracking(1.2)
+                .foregroundStyle(Color.white.opacity(renderingMode.isMonochrome ? 0.7 : 0.55))
+            Rectangle()
+                .fill(Color.white.opacity(renderingMode.isMonochrome ? 0.2 : 0.12))
+                .frame(height: 1)
+        }
     }
 }

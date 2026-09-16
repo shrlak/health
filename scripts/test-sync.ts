@@ -438,6 +438,7 @@ function testSummary() {
     { day: '2026-03-02', recovery_pct: 71, hrv_ms: 52.4, resting_hr: 55 },
   ]
   const sleep = [
+    { day: '2026-03-01', asleep_min: 501, need_min: 505, performance_pct: 99 },
     { day: '2026-03-02', asleep_min: 447, need_min: 512, performance_pct: 87 },
   ]
 
@@ -455,6 +456,15 @@ function testSummary() {
   check('strain trends separately',
     s.strainTrend.map((p) => p.value).join(',') === '13.24,8.1', s.strainTrend)
 
+  // The large widget shows the heart rates behind the strain score and plots
+  // sleep and resting heart rate, none of which the smaller sizes carry.
+  check('reads that day\'s average heart rate', s.avgHr === 64, s.avgHr)
+  check('reads that day\'s peak heart rate', s.maxHr === 141, s.maxHr)
+  check('trends sleep minutes',
+    s.sleepTrend.map((p) => p.value).join(',') === '501,447', s.sleepTrend)
+  check('trends resting heart rate',
+    s.restingHrTrend.map((p) => p.value).join(',') === '64,55', s.restingHrTrend)
+
   // Whoop scores a night on waking, so the newest day often has a recovery
   // before it has any strain. The widget must show what exists, not go blank.
   const partial = summarise(
@@ -465,6 +475,11 @@ function testSummary() {
   check('uses the newest day across all three tables', partial.day === '2026-03-02', partial.day)
   check('leaves a missing strain null', partial.strain === null, partial.strain)
   check('still reports the recovery', partial.recovery === 71, partial.recovery)
+  // No cycle for the newest day means no heart rates for it either, and the
+  // widget draws a dash rather than yesterday's numbers.
+  check('leaves the heart rates null without a cycle',
+    partial.avgHr === null && partial.maxHr === null, [partial.avgHr, partial.maxHr])
+  check('returns an empty sleep trend, not null', partial.sleepTrend.length === 0, partial.sleepTrend)
 
   // Out-of-order rows must not reorder the sparkline.
   const shuffled = summarise(
@@ -485,6 +500,9 @@ function testSummary() {
   const empty = summarise([], [], [])
   check('survives an account with no data', empty.day === null, empty.day)
   check('returns empty trends, not null', empty.recoveryTrend.length === 0, empty.recoveryTrend)
+  check('returns every trend empty, not null',
+    empty.sleepTrend.length === 0 && empty.restingHrTrend.length === 0 && empty.hrvTrend.length === 0,
+    [empty.sleepTrend, empty.restingHrTrend, empty.hrvTrend])
 }
 
 function main() {

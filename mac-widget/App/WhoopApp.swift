@@ -13,7 +13,7 @@ struct WhoopApp: App {
         WindowGroup {
             ContentView()
         }
-        .defaultSize(width: 380, height: 470)
+        .defaultSize(width: 420, height: 640)
     }
 }
 
@@ -31,7 +31,12 @@ struct ContentView: View {
             if loading {
                 ProgressView().frame(maxWidth: .infinity)
             } else if let summary, summary.day != nil {
-                loaded(summary)
+                // Scrolled rather than stacked: the window now carries every
+                // figure the large widget does, and a shrunken window should
+                // scroll it rather than clip it the way a widget would.
+                ScrollView {
+                    loaded(summary).frame(maxWidth: .infinity, alignment: .leading)
+                }
             } else {
                 Label(failure ?? "Nothing synced yet", systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.white.opacity(0.7))
@@ -46,7 +51,10 @@ struct ContentView: View {
                     .font(.headline)
                     .foregroundStyle(.white.opacity(0.85))
                 Text("Right-click the desktop, choose Edit Widgets, search for Whoop, "
-                     + "and drag the size you want into place.")
+                     + "and drag the size you want into place. Small shows recovery, "
+                     + "strain and sleep; medium adds HRV, resting heart rate and trend "
+                     + "lines; large adds heart rate, sleep against need and a labelled "
+                     + "week of every metric. Drop a second copy to keep two sizes at once.")
                     .font(.callout)
                     .foregroundStyle(.white.opacity(0.55))
                     .fixedSize(horizontal: false, vertical: true)
@@ -65,40 +73,104 @@ struct ContentView: View {
         .task { await load() }
     }
 
+    /// The same figures the large widget draws, since this window is where you
+    /// come to find out why the widget looks wrong — a value missing here is a
+    /// value the endpoint did not return, not a layout that dropped it.
     @ViewBuilder
     private func loaded(_ summary: Summary) -> some View {
         GlassCard(cornerRadius: 16) {
-            HStack(spacing: 18) {
-                VStack(spacing: 6) {
-                    RecoveryRing(
-                        fraction: summary.recoveryFraction,
-                        color: summary.recoveryColor,
-                        label: summary.recoveryText,
-                        lineWidth: 11
-                    )
-                    .frame(width: 92, height: 92)
-                    if let readiness = summary.readiness {
-                        ReadinessBadge(
-                            score: readiness,
-                            shortLabel: summary.readinessShortLabel,
-                            color: summary.readinessColor
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 18) {
+                    VStack(spacing: 6) {
+                        RecoveryRing(
+                            fraction: summary.recoveryFraction,
+                            color: summary.recoveryColor,
+                            label: summary.recoveryText,
+                            lineWidth: 11,
+                            labelSize: 22
+                        )
+                        .frame(width: 92, height: 92)
+                        if let readiness = summary.readiness {
+                            ReadinessBadge(
+                                score: readiness,
+                                shortLabel: summary.readinessShortLabel,
+                                color: summary.readinessColor
+                            )
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 9) {
+                        Text(summary.dayText).font(.subheadline).foregroundStyle(.white.opacity(0.7))
+                        Stat(
+                            label: "STRAIN", value: summary.strainText,
+                            color: MetricPalette.strain, delta: summary.strainDelta,
+                            secondary: summary.calories != nil ? summary.caloriesText : nil
+                        )
+                        Stat(
+                            label: "SLEEP", value: summary.sleepText,
+                            color: MetricPalette.sleep, delta: summary.sleepDelta,
+                            secondary: summary.sleepSecondaryText
+                        )
+                        Stat(label: "HRV", value: summary.hrvText,
+                             color: MetricPalette.hrv, delta: summary.hrvDelta)
+                        Stat(label: "RESTING HR", value: summary.restingHrText,
+                             color: MetricPalette.restingHR, delta: summary.restingHrDelta)
+                        HStack(spacing: 16) {
+                            Stat(label: "AVG HR", value: summary.avgHrText,
+                                 color: GlassPalette.accentStart, fillsWidth: true)
+                            Stat(label: "PEAK HR", value: summary.maxHrText,
+                                 color: GlassPalette.accentEnd, fillsWidth: true)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                MeterBar(
+                    label: "SLEEP VS NEED",
+                    value: "\(summary.sleepText) of \(summary.sleepNeedText)",
+                    fraction: summary.sleepFraction,
+                    color: MetricPalette.sleep,
+                    caption: summary.sleepBalanceText
+                )
+                MeterBar(
+                    label: "DAY STRAIN",
+                    value: "\(summary.strainText) of 21",
+                    fraction: summary.strainFraction,
+                    color: MetricPalette.strain
+                )
+
+                if summary.recoveryWeek != nil || summary.strainWeek != nil {
+                    SectionHeader(title: "LAST 7 DAYS")
+                    if let week = summary.recoveryWeek {
+                        TrendRow(
+                            label: "RECOVERY", value: summary.recoveryText,
+                            points: Array(summary.recoveryTrend.suffix(7)),
+                            color: summary.recoveryColor, delta: summary.recoveryDelta,
+                            detail: "avg \(week.averageText(unit: "%"))"
+                        )
+                    }
+                    if let week = summary.strainWeek {
+                        TrendRow(
+                            label: "STRAIN", value: summary.strainText,
+                            points: Array(summary.strainTrend.suffix(7)),
+                            color: MetricPalette.strain, delta: summary.strainDelta,
+                            detail: "avg \(week.averageText(decimals: 1))"
+                        )
+                    }
+                    if let week = summary.sleepWeek {
+                        TrendRow(
+                            label: "SLEEP", value: summary.sleepText,
+                            points: Array(summary.sleepTrendPoints.suffix(7)),
+                            color: MetricPalette.sleep,
+                            detail: "avg \(durationText(week.average))"
                         )
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 9) {
-                    Text(summary.dayText).font(.subheadline).foregroundStyle(.white.opacity(0.7))
-                    Stat(
-                        label: "STRAIN", value: summary.strainText,
-                        color: MetricPalette.strain, delta: summary.strainDelta,
-                        secondary: summary.calories != nil ? summary.caloriesText : nil
-                    )
-                    Stat(
-                        label: "SLEEP", value: summary.sleepText,
-                        color: MetricPalette.sleep, secondary: summary.sleepSecondaryText
-                    )
-                    Stat(label: "HRV", value: summary.hrvText, color: MetricPalette.hrv)
-                    Stat(label: "RESTING HR", value: summary.restingHrText, color: MetricPalette.restingHR)
+                if let updated = summary.updatedAtText {
+                    Text("\(updated) · \(summary.loggedDays) days logged")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.45))
                 }
             }
             .padding(14)

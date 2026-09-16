@@ -38,6 +38,9 @@ export interface Summary {
   restingHr: number | null
   strain: number | null
   calories: number | null
+  /** The cycle's average and peak heart rate, in bpm. */
+  avgHr: number | null
+  maxHr: number | null
   sleepMin: number | null
   sleepNeedMin: number | null
   sleepPerformance: number | null
@@ -51,6 +54,9 @@ export interface Summary {
   recoveryTrend: Array<{ day: string; value: number }>
   strainTrend: Array<{ day: string; value: number }>
   hrvTrend: Array<{ day: string; value: number }>
+  /** Minutes asleep per day, for the large widget's sleep trend. */
+  sleepTrend: Array<{ day: string; value: number }>
+  restingHrTrend: Array<{ day: string; value: number }>
   updatedAt: string
 }
 
@@ -170,6 +176,8 @@ export function summarise(
   const recoveryTrend = trend(recovery, (r) => r.recovery_pct)
   const strainTrend = trend(cycles, (c) => c.strain)
   const hrvTrend = trend(recovery, (r) => r.hrv_ms)
+  const sleepTrend = trend(sleep, (row) => row.asleep_min)
+  const restingHrTrend = trend(recovery, (r) => r.resting_hr)
 
   const days = [...cycles, ...recovery, ...sleep].map((r) => r.day).filter(Boolean).sort()
   const day = days.length ? days[days.length - 1] : null
@@ -191,6 +199,8 @@ export function summarise(
     restingHr: r?.resting_hr ?? null,
     strain: c?.strain ?? null,
     calories: c?.kilojoules != null ? Math.round(c.kilojoules / 4.184) : null,
+    avgHr: c?.avg_hr ?? null,
+    maxHr: c?.max_hr ?? null,
     sleepMin: s?.asleep_min ?? null,
     sleepNeedMin: s?.need_min ?? null,
     sleepPerformance: s?.performance_pct ?? null,
@@ -200,6 +210,8 @@ export function summarise(
     recoveryTrend,
     strainTrend,
     hrvTrend,
+    sleepTrend,
+    restingHrTrend,
     updatedAt: now.toISOString(),
   }
 }

@@ -16,6 +16,11 @@ struct Summary: Decodable {
     let restingHr: Double?
     let strain: Double?
     let calories: Double?
+    /// The cycle's average and peak heart rate. Optional in the model as well
+    /// as in the data: a widget refreshing before the backend redeploys would
+    /// otherwise fail to decode the whole payload over one missing key.
+    let avgHr: Double?
+    let maxHr: Double?
     let sleepMin: Double?
     let sleepNeedMin: Double?
     let sleepPerformance: Double?
@@ -26,10 +31,12 @@ struct Summary: Decodable {
     let readinessBand: String?
     let recoveryTrend: [TrendPoint]
     let strainTrend: [TrendPoint]
-    /// Optional, unlike the other two trends: added alongside this decode,
-    /// so a widget refreshing before the backend redeploys would otherwise
-    /// fail to decode the whole payload over one missing key.
+    /// Optional, unlike the other two trends, for the same reason as `avgHr`:
+    /// added after the first widget shipped, and a missing key must degrade to
+    /// a dash rather than fail the whole decode.
     let hrvTrend: [TrendPoint]?
+    let sleepTrend: [TrendPoint]?
+    let restingHrTrend: [TrendPoint]?
     let updatedAt: String
 }
 
@@ -57,6 +64,54 @@ private func trendDelta(_ points: [TrendPoint], decimals: Int) -> TrendDelta? {
     let diff = latest - mean
     let direction: TrendDelta.Direction = abs(diff) < 0.05 ? .flat : (diff > 0 ? .up : .down)
     return TrendDelta(direction: direction, magnitudeText: String(format: "%.\(decimals)f", abs(diff)))
+}
+
+/// A trend window reduced to what the large layout labels a sparkline with:
+/// how many days it covers, the average across them, and the range the line
+/// spans. A sparkline on its own shows a shape without a scale; these are the
+/// numbers that give it one.
+struct TrendStats {
+    let count: Int
+    let average: Double
+    let low: Double
+    let high: Double
+    let latest: Double
+
+    /// `days` takes the most recent n points rather than the whole window,
+    /// since the payload carries thirty days and the large layout quotes a
+    /// week. Returns nil for an empty trend, so the caller draws a dash
+    /// instead of a zero that looks like a reading.
+    init?(_ points: [TrendPoint], days: Int? = nil) {
+        let window = days.map { Array(points.suffix($0)) } ?? points
+        let values = window.map(\.value)
+        guard let latest = values.last,
+              let low = values.min(),
+              let high = values.max() else { return nil }
+        self.count = values.count
+        self.average = values.reduce(0, +) / Double(values.count)
+        self.low = low
+        self.high = high
+        self.latest = latest
+    }
+
+    func averageText(decimals: Int = 0, unit: String = "") -> String {
+        let number = String(format: "%.\(decimals)f", average)
+        return unit.isEmpty ? number : "\(number)\(unit)"
+    }
+
+    func rangeText(decimals: Int = 0, unit: String = "") -> String {
+        let lowText = String(format: "%.\(decimals)f", low)
+        let highText = String(format: "%.\(decimals)f", high)
+        return unit.isEmpty ? "\(lowText)–\(highText)" : "\(lowText)–\(highText)\(unit)"
+    }
+}
+
+/// "8h 32m", the one duration format the whole widget uses.
+func durationText(_ minutes: Double) -> String {
+    let total = Int(minutes.rounded())
+    let hours = total / 60
+    let rest = total % 60
+    return hours > 0 ? "\(hours)h \(rest)m" : "\(rest)m"
 }
 
 enum SummaryError: LocalizedError {
@@ -102,12 +157,81 @@ extension Summary {
     var restingHrText: String { restingHr.map { "\(Int($0.rounded())) bpm" } ?? "—" }
     var caloriesText: String { calories.map { "\(Int($0.rounded())) kcal" } ?? "—" }
     var readinessText: String { readiness.map { String(format: "%.1f", $0) } ?? "—" }
+    var avgHrText: String { avgHr.map { "\(Int($0.rounded())) bpm" } ?? "—" }
+    var maxHrText: String { maxHr.map { "\(Int($0.rounded())) bpm" } ?? "—" }
     var hrvTrendPoints: [TrendPoint] { hrvTrend ?? [] }
+    var sleepTrendPoints: [TrendPoint] { sleepTrend ?? [] }
+    var restingHrTrendPoints: [TrendPoint] { restingHrTrend ?? [] }
 
     var sleepText: String {
         guard let minutes = sleepMin else { return "—" }
-        let total = Int(minutes.rounded())
-        return "\(total / 60)h \(total % 60)m"
+        return durationText(minutes)
+    }
+
+    var sleepNeedText: String { sleepNeedMin.map(durationText) ?? "—" }
+    var sleepPerformanceText: String { sleepPerformance.map { "\(Int($0.rounded()))%" } ?? "—" }
+    var sleepEfficiencyText: String { sleepEfficiency.map { "\(Int($0.rounded()))%" } ?? "—" }
+
+    /// How much of the night's need was actually slept, 0…1, for the large
+    /// layout's meter. Capped at 1: sleeping past the need fills the bar
+    /// rather than overflowing it.
+    var sleepFraction: Double? {
+        guard let sleepMin, let need = sleepNeedMin, need > 0 else { return nil }
+        return min(max(sleepMin / need, 0), 1)
+    }
+
+    /// "1h 05m short" / "32m over", the gap between slept and needed. Whoop
+    /// gives a percentage for the same thing; the duration is what tells you
+    /// how much earlier to go to bed.
+    var sleepBalanceText: String? {
+        guard let sleepMin, let need = sleepNeedMin else { return nil }
+        let diff = sleepMin - need
+        if abs(diff) < 5 { return "on need" }
+        return diff < 0 ? "\(durationText(-diff)) short" : "\(durationText(diff)) over"
+    }
+
+    /// Whoop's day strain runs 0…21 on a logarithmic scale, so the fraction is
+    /// for a progress meter, not a claim that 10.5 is half a hard day.
+    var strainFraction: Double? {
+        guard let strain else { return nil }
+        return min(max(strain / 21, 0), 1)
+    }
+
+    /// 0…1 for the readiness meter, from the same 0…10 score as the badge.
+    var readinessFraction: Double? {
+        guard let readiness else { return nil }
+        return min(max(readiness / 10, 0), 1)
+    }
+
+    /// "Recover" / "Pace" / "Ready" / "Go" — the badge's word with room to
+    /// breathe, for the large layout.
+    var readinessLongLabel: String {
+        switch readinessBand {
+        case "recover": return "Recover"
+        case "pace": return "Pace yourself"
+        case "ready": return "Ready"
+        case "go": return "Go for it"
+        default: return "Readiness"
+        }
+    }
+
+    /// "Updated 08:42", in the viewer's own timezone and clock format. The
+    /// widget cannot say it is stale any other way: a cached body and a fresh
+    /// one are drawn identically.
+    var updatedAtText: String? {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        var parsed = iso.date(from: updatedAt)
+        if parsed == nil {
+            iso.formatOptions = [.withInternetDateTime]
+            parsed = iso.date(from: updatedAt)
+        }
+        guard let date = parsed else { return nil }
+
+        let display = DateFormatter()
+        display.dateStyle = .none
+        display.timeStyle = .short
+        return "Updated \(display.string(from: date))"
     }
 
     var sleepDetail: String {
@@ -166,6 +290,28 @@ extension Summary {
 
     /// Latest strain vs. the mean of the rest of `strainTrend`.
     var strainDelta: TrendDelta? { trendDelta(strainTrend, decimals: 1) }
+
+    /// The same comparison for the metrics only the large layout has room to
+    /// show a trend for.
+    var hrvDelta: TrendDelta? { trendDelta(hrvTrendPoints, decimals: 0) }
+    var restingHrDelta: TrendDelta? { trendDelta(restingHrTrendPoints, decimals: 0) }
+    var sleepDelta: TrendDelta? { trendDelta(sleepTrendPoints, decimals: 0) }
+
+    /// A week of each metric, for the large layout's labelled trend rows.
+    var recoveryWeek: TrendStats? { TrendStats(recoveryTrend, days: 7) }
+    var strainWeek: TrendStats? { TrendStats(strainTrend, days: 7) }
+    var hrvWeek: TrendStats? { TrendStats(hrvTrendPoints, days: 7) }
+    var restingHrWeek: TrendStats? { TrendStats(restingHrTrendPoints, days: 7) }
+    var sleepWeek: TrendStats? { TrendStats(sleepTrendPoints, days: 7) }
+
+    /// How many days the payload's window actually has readings for, so the
+    /// large layout can say what its averages are averaging.
+    var loggedDays: Int {
+        Set(recoveryTrend.map(\.day))
+            .union(strainTrend.map(\.day))
+            .union(sleepTrendPoints.map(\.day))
+            .count
+    }
 
     /// "Mon 14 Sep", or nothing if no day has been scored yet.
     var dayText: String {
