@@ -279,21 +279,14 @@ Notes worth keeping in mind if you change any of it:
 
 ## The Mac widget
 
-A native WidgetKit widget for the Notification Center and the desktop, in all
-three sizes macOS offers. The size is picked when the widget is dragged out,
-and each one shows as much as it has room for: small is the glance, large is
-the whole summary.
+A native WidgetKit widget for the desktop and Notification Center, showing the
+day as rings. It offers the large size only: a widget's size is picked in the
+gallery when it is dragged out and the default is the smallest on offer, so
+registering three families means usually coming away with the small one. This
+is written for the large canvas, and offering that alone is the only way a
+widget can say so.
 
 ```
-small                          medium
-┌──────────────┐               ┌────────────────────────────────┐
-│  ◜◝          │               │   ◜◝    Sep 14 (Sun)           │
-│ ◟  ◞  82%    │               │  ◟  ◞    STRAIN  5.0  SLEEP 9h │
-│              │               │   82%    HRV 84 ms  RHR 45 bpm │
-│ STRAIN  5.0  │               │ RECOVERY ╱╲__╱‾╲__╱‾           │
-│ SLEEP   9h32 │               │                                │
-└──────────────┘               └────────────────────────────────┘
-
 large
 ┌────────────────────────────────┐
 │ WHOOP              Sep 15 (Tue)│
@@ -339,7 +332,8 @@ the one drawn.
 
 The source is in [`mac-widget/`](mac-widget/). macOS only offers widgets that
 ship inside an installed app, so it is built once on the machine that runs it:
-`brew install xcodegen`, then `./setup.sh`, then press Run in Xcode.
+`brew install xcodegen`, then `./setup.sh`, then press Run in Xcode, then
+`./install.sh` to put the build where macOS serves widgets from.
 
 It reads one endpoint with a token scoped to reading only. A widget is woken by
 the system long after any login session would have expired, so it cannot hold

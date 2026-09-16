@@ -1,10 +1,14 @@
 # Whoop widget for macOS
 
-A Notification Center / desktop widget showing today's recovery, strain and
-sleep, in all three sizes macOS offers. The size is chosen when you drag it out, and
-each one carries as much as it has room for: the small size is a glance, the
-large size is the whole summary — heart rate, sleep against need, and a
-labelled week of every metric.
+A desktop / Notification Center widget showing the day as rings: recovery,
+sleep against the need Whoop set for it, and strain — with the day's heart rate
+from resting to peak, and a labelled week of every metric.
+
+It offers the large size only. A widget's size is picked in the gallery when it
+is dragged out, and the default is the smallest on offer, so a widget that
+registers three families is one you will usually come away with the small
+version of. This is written for the large canvas, and offering that alone is
+the only way a widget can say so.
 
 It reads one endpoint — `whoop-widget` — with a read-only token. The token can
 do nothing but fetch that summary: it cannot write data and cannot reach the
@@ -113,16 +117,33 @@ The scheme control at the top should read **Whoop › My Mac**. Press **⌘R**.
 The Whoop window opens and shows your recovery, strain and sleep. If it shows
 an error instead, that is the diagnostic — see the troubleshooting list below.
 
-### 7. Move it to Applications
+### 7. Install it
 
-Xcode builds into DerivedData, which is a scratch directory. A widget served
-from there stops working the moment that directory is cleaned, so move the app
-somewhere stable:
+Xcode builds into DerivedData, a scratch directory whose name carries a hash
+and which gets cleaned. macOS serves a widget from the installed copy of the
+app, so a build left in there is a widget showing yesterday's code until the
+day that directory is emptied and it stops showing anything.
 
-1. In the left sidebar, open the **Products** group and right-click
-   **Whoop.app** → **Show in Finder**.
-2. Drag it into **/Applications**.
-3. Launch it from there once.
+```sh
+./install.sh
+```
+
+It asks Xcode where the build went, copies it to `/Applications/Whoop.app`,
+and launches it once — which is what registers the widget extension. Run it
+after every **⌘R** you want the desktop to pick up.
+
+Two things it gets right that a hand-rolled `find` does not. Xcode's indexer
+writes its own `Whoop.app` under `Index.noindex` as a by-product of parsing the
+code — it is not built to run, and it is routinely *newer* than the real build,
+so picking the first or the most recent match finds the wrong one. And the Run
+action's configuration is a per-scheme setting, so a script that assumes Debug
+finds nothing on a project set to Release.
+
+If you would rather do it by hand: in Xcode's left sidebar, open the
+**Products** group, right-click **Whoop.app** → **Show in Finder**, drag it
+into **/Applications**, and launch it from there once. The Products group is
+near the bottom of the Project navigator and is easy to miss; `install.sh`
+exists because finding that build by hand is the step people get stuck on.
 
 ### 8. Add the widget
 
@@ -131,11 +152,12 @@ same panel opens from clicking the clock in the menu bar and scrolling to the
 bottom.) Search for **Whoop** in the list on the left, then drag the size you
 want onto the desktop or into Notification Center.
 
-The size panel shows the three sizes macOS has: small, medium and large.
-(Extra large is an iPad size; WidgetKit does not offer it to a Mac at all.) To
-change your mind later, right-click the widget you placed and choose **Edit
-Widget**, or drag it out and drop a different size in its place. Nothing stops you keeping two at once: a small one
-in Notification Center and a large one on the desktop read the same endpoint.
+Only the large size is offered, so there is nothing to choose — drag the one
+preview out.
+
+If the panel shows you three sizes, the copy in `/Applications` is an older
+build than this one. Run `./install.sh` again and check the timestamp it
+prints.
 
 ## If something goes wrong
 
@@ -145,14 +167,15 @@ in Notification Center and a large one on the desktop read the same endpoint.
 | Widget says **Add your token in Config.swift** | `setup.sh` ran without a token. Run it again and paste one. |
 | Widget says **Token rejected** | The token was revoked or mistyped. Create a new one on Connections and re-run `setup.sh`. |
 | Widget says **Nothing synced yet** | The token works but the account has no Whoop data in the last two weeks. |
-| The large size shows fewer trend rows than the screenshot | Expected. It fits itself to the canvas your Mac gives it; see [Why the large size sometimes shows fewer trend rows](#why-the-large-size-sometimes-shows-fewer-trend-rows). |
+| It shows fewer trend rows than the screenshot | Expected. It fits itself to the canvas your Mac gives it; see [Why it sometimes shows fewer trend rows](#why-it-sometimes-shows-fewer-trend-rows). |
 | A figure shows a dash, or the calories ring is empty | The app is newer than the deployed `whoop-widget` function, so a field it wants is not in the payload yet. Redeploy it (`supabase functions deploy whoop-widget --no-verify-jwt`) and the next refresh fills it in. Every added field decodes as optional, so an old backend costs you that figure and nothing else. |
 | Widget is blank or stuck on placeholder text | Open the Whoop app. It fetches the same endpoint the same way and has room to say what failed. |
-| **Whoop** is not in the Edit Widgets list | The app has not been run from a stable location. Do step 7. |
+| **Whoop** is not in the Edit Widgets list | The app has not been run from `/Applications`. Run `./install.sh`. |
+| You cannot find `Whoop.app` to copy | It is in DerivedData under a hashed directory name. Run `./install.sh`, which asks Xcode where the build went rather than making you look for it — and skips the indexer's copy under `Index.noindex`, which is not a runnable build. |
 | The number looks stale | WidgetKit budgets refreshes. Open the app and press **Refresh**, which reloads every timeline. |
 | Numbers missing, or cut off at an edge | A build from before the layouts owned their margins. `git pull`, then rebuild with **⌘R** — the widget reloads once the new app has launched. |
 | The stats are a blank slab, or numbers are missing, until you click the desktop | macOS renders desktop widgets without colour while another window is in front. See [When the desktop is not in front](#when-the-desktop-is-not-in-front). |
-| A rebuild changes nothing on the desktop | Xcode builds into DerivedData, but the widget is served from `/Applications/Whoop.app`. Redo step 7 so the copy there is the new one, then check `pluginkit -mAvvv -p com.apple.widgetkit-extension \| grep -A3 shrlak` shows a fresh `Timestamp`. |
+| A rebuild changes nothing on the desktop | Xcode builds into DerivedData, but the widget is served from `/Applications/Whoop.app`. Run `./install.sh` so the copy there is the new one, then check `pluginkit -mAvvv -p com.apple.widgetkit-extension \| grep -A3 shrlak` shows a fresh `Timestamp`. |
 | A wall of `com.apple.linkd.autoShortcut` errors in the console | Not a failure, and it only appears once the app has launched. Every sandboxed app tries to register with the Shortcuts service at startup and the sandbox denies it; this one uses no App Intents, so nothing is lost. Filter the Xcode console by `Whoop` to hide it. |
 
 ## Where the token lives
@@ -173,34 +196,9 @@ Whoop scores a night when you wake, so the newest complete day is often
 yesterday's date — the widget labels which day it is showing rather than
 assuming today.
 
-## What each size shows
-
-| | Small | Medium | Large |
-| --- | --- | --- | --- |
-| Recovery ring | ● | ● | ● |
-| Strain, sleep | ● | ● | ● |
-| Day being shown | | ● | ● |
-| HRV, resting heart rate | | ● | ● |
-| Readiness | | badge | under the recovery ring |
-| Calories | | ● | ● |
-| Recovery, sleep and strain as rings | | | ● |
-| Sleep against the night's need | | | ● (ring) |
-| Day strain against a maxed-out day | | | ● (ring) |
-| Heart-rate range, resting to peak | | | ● |
-| Trend charts | | 3 lines, unlabelled | up to 5, labelled; strain as bars |
-| Seven-day average and range per metric | | | ● |
-| When it last refreshed | | | ● |
+## What it shows
 
 ```
-small                          medium
-┌──────────────┐               ┌────────────────────────────────┐
-│  ◜◝          │               │   ◜◝    Sep 14 (Sun)           │
-│ ◟  ◞  82%    │               │  ◟  ◞    STRAIN  5.0  SLEEP 9h │
-│              │               │   82%    HRV 84 ms  RHR 45 bpm │
-│ STRAIN  5.0  │               │ RECOVERY ╱╲__╱‾╲__╱‾           │
-│ SLEEP   9h32 │               │                                │
-└──────────────┘               └────────────────────────────────┘
-
 large
 ┌────────────────────────────────┐
 │ WHOOP              Sep 15 (Tue)│
@@ -222,7 +220,7 @@ large
 └────────────────────────────────┘
 ```
 
-### What the large size draws, and why
+### What it draws, and why
 
 Three things on it are drawn rather than written:
 
@@ -242,7 +240,7 @@ Three things on it are drawn rather than written:
   strain is a separate effort each time, and bars say that where a line implies
   a slope between them.
 
-### Why the large size sometimes shows fewer trend rows
+### Why it sometimes shows fewer trend rows
 
 A widget cannot scroll, and it clips whatever does not fit instead of shrinking
 it. macOS also does not hand every Mac the same canvas for a large widget. So
@@ -290,8 +288,10 @@ account with nothing synced yet, or no network.
 | `project.yml` | The Xcode project, as a spec. Generated into `Whoop.xcodeproj` by `xcodegen`. |
 | `Shared/Summary.swift` | The response model, the fetch, and the display formatting. |
 | `Shared/Views.swift` | The rings, heart-rate track, sparklines and bars, shared by the app and the widget. |
-| `Widget/WhoopWidget.swift` | The timeline provider and the widget layouts, one per size. |
+| `Widget/WhoopWidget.swift` | The timeline provider and the widget layouts. Only the large one is offered; the small and medium layouts are kept for re-offering their family. |
 | `App/WhoopApp.swift` | The container app, which is also the diagnostic window. It draws the same figures at a larger type scale. |
+| `setup.sh` | Writes the token into `Shared/Config.swift` and generates the Xcode project. |
+| `install.sh` | Copies the built app from DerivedData to `/Applications`, where macOS serves the widget from. |
 | `Config.example.swift` | Template for `Shared/Config.swift`. |
 
 A generated `.xcodeproj` is a large file that conflicts on every edit, so it is
