@@ -4,9 +4,12 @@ import { Sparkline } from '../components/Sparkline'
 import { Link } from '../lib/router'
 import { useTheme } from '../lib/theme'
 import { longDay } from '../lib/format'
-import { METRIC_BY_KEY, SUMMARY_ORDER, metricSlot, type MetricDef } from '../lib/metrics'
 import {
-  BAND_LABEL, buildInsights, CATEGORY_SLOT, computeCategories, computeReadiness, scoreLabel,
+  CATEGORY_SECTION, METRIC_BY_KEY, SUMMARY_ORDER, metricSlot, type MetricDef,
+} from '../lib/metrics'
+import {
+  BAND_BLURB, BAND_LABEL, buildInsights, CATEGORY_SLOT, computeCategories, computeReadiness,
+  scoreLabel,
 } from '../lib/wellness'
 import { mean } from '../lib/analytics'
 import type { Derived } from './common'
@@ -40,16 +43,36 @@ export function Home({ d }: { d: Derived }) {
   const categories = useMemo(() => computeCategories(scoreInput), [scoreInput])
   const insights = useMemo(() => buildInsights(scoreInput).slice(0, 3), [scoreInput])
 
-  // Only show a tile where there is something to show.
-  const tiles = useMemo(() => {
-    const out: Array<{ def: MetricDef; summary: Summary }> = []
+  // Only show a tile where there is something to show, and gather the tiles
+  // into the section each metric already belongs to. Twenty-three tiles in one
+  // undifferentiated grid is a wall: nothing in it is findable, and the ones
+  // that matter carry no more weight than "Awake in Bed". Grouped, it reads as
+  // three short lists with a way into each.
+  const groups = useMemo(() => {
+    const bySection = new Map<string, MetricGroup>()
+
     for (const key of SUMMARY_ORDER) {
       const def = METRIC_BY_KEY.get(key)
       if (!def) continue
       const summary = summarise(def, d)
-      if (summary) out.push({ def, summary })
+      if (!summary) continue
+
+      const section = CATEGORY_SECTION[def.category]
+      let group = bySection.get(section.path)
+      if (!group) {
+        // The group takes its colour from the first metric to land in it,
+        // which is the section's headline measure given SUMMARY_ORDER.
+        group = { ...section, slot: metricSlot(def.category), tiles: [] }
+        bySection.set(section.path, group)
+      }
+      group.tiles.push({ def, summary })
     }
-    return out
+
+    // Nav order, so the summary and the tab bar tell the same story.
+    const order = ['/sleep', '/heart', '/move']
+    return [...bySection.values()].sort(
+      (a, b) => indexOrLast(order, a.path) - indexOrLast(order, b.path),
+    )
   }, [d])
 
   if (!d.hasAny) {
@@ -94,40 +117,74 @@ export function Home({ d }: { d: Derived }) {
               </Ring>
 
               <div className="min-w-0 flex-1">
-                <div className="t-caption font-semibold tracking-wide text-[var(--label-3)] uppercase">
-                  Readiness
-                </div>
-                <h3 className="t-title-2 mt-0.5 text-[var(--label)]">
+                <div className="t-eyebrow text-[var(--label-3)]">Readiness</div>
+                <h3 className="t-title-2 mt-1 text-[var(--label)]">
                   {readiness.band ? BAND_LABEL[readiness.band] : 'Not enough data'}
                 </h3>
+                {/* What to do about the number, rather than how many signals
+                    produced it -- the count told you nothing you could act on,
+                    and the signals themselves are listed below. */}
                 <p className="t-footnote mt-1 text-[var(--label-2)]">
-                  {readiness.contributions.filter((c) => c.value !== null).length} of{' '}
-                  {readiness.contributions.length} signals available
+                  {readiness.band
+                    ? BAND_BLURB[readiness.band]
+                    : 'Connect Whoop to get a readiness score.'}
                 </p>
               </div>
 
               <Chevron />
             </div>
+
+            {/* The inputs, at a glance. The full working is on Insights; this
+                is just enough to see which signal moved the score. */}
+            {readiness.contributions.length > 0 && (
+              <ul className="mt-4 flex flex-wrap gap-x-2 gap-y-2 border-t border-[var(--separator)] pt-3.5">
+                {readiness.contributions.map((c) => (
+                  <li
+                    key={c.label}
+                    className="flex items-baseline gap-1.5 rounded-[var(--r-pill)] bg-[var(--fill-2)] px-2.5 py-1"
+                  >
+                    <span className="t-caption text-[var(--label-3)]">{c.label}</span>
+                    <span
+                      className={
+                        'tnum t-caption font-semibold ' +
+                        (c.value === null ? 'text-[var(--label-3)]' : 'text-[var(--label)]')
+                      }
+                    >
+                      {c.value === null ? '--' : chipValue(c.detail)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
         </Link>
       </section>
 
       {/* --------------------------------------------------- metrics */}
-      <section>
-        <SectionTitle hint="Last 30 days. Tap any card for the full history.">
-          Your health
-        </SectionTitle>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {tiles.map(({ def, summary }) => (
-            <MetricTile
-              key={def.key}
-              def={def}
-              summary={summary}
-              color={palette.series[metricSlot(def.category)]}
-            />
-          ))}
-        </div>
-      </section>
+      {groups.length > 0 && (
+        <section>
+          <SectionTitle hint="Last 30 days. Tap any card for the full history.">
+            Your health
+          </SectionTitle>
+          <div className="space-y-5">
+            {groups.map((group) => (
+              <div key={group.path}>
+                <GroupHeading group={group} color={palette.series[group.slot]} />
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  {group.tiles.map(({ def, summary }) => (
+                    <MetricTile
+                      key={def.key}
+                      def={def}
+                      summary={summary}
+                      color={palette.series[metricSlot(def.category)]}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ------------------------------------------------- longevity */}
       {scored.length > 0 && (
@@ -232,6 +289,31 @@ export function Home({ d }: { d: Derived }) {
 
 // ------------------------------------------------------------------ tiles
 
+/**
+ * A contribution's detail trimmed to the reading itself: "78 ms vs 96 ms
+ * baseline" becomes "78 ms". The baseline half is what Insights is for, and at
+ * chip size it made four pills of four different widths. A detail that does not
+ * carry the comparison passes through unchanged.
+ */
+function chipValue(detail: string): string {
+  return detail.split(' vs ')[0]
+}
+
+/** A section's worth of summary tiles, with the route back to its own tab. */
+interface MetricGroup {
+  path: string
+  label: string
+  /** Palette slot, so the group marker matches the tiles under it. */
+  slot: number
+  tiles: Array<{ def: MetricDef; summary: Summary }>
+}
+
+/** Position in `order`, or the end for anything the list does not name. */
+function indexOrLast(order: string[], path: string): number {
+  const i = order.indexOf(path)
+  return i === -1 ? order.length : i
+}
+
 interface Summary {
   latest: number
   latestDay: string
@@ -269,6 +351,34 @@ function summarise(def: MetricDef, d: Derived): Summary | null {
   }
 }
 
+/**
+ * A group's heading inside the summary grid. Deliberately lighter than
+ * `SectionTitle`, which names the whole section above it -- this is a shelf
+ * label, and it doubles as the way into that section's own tab.
+ */
+function GroupHeading({ group, color }: { group: MetricGroup; color: string }) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-3 px-1">
+      <h3 className="flex min-w-0 items-center gap-2">
+        <span
+          aria-hidden
+          className="h-2 w-2 shrink-0 rounded-full"
+          style={{ background: color, boxShadow: `0 0 8px ${color}` }}
+        />
+        <span className="t-eyebrow truncate text-[var(--label-2)]">{group.label}</span>
+        <span className="tnum t-caption text-[var(--label-3)]">{group.tiles.length}</span>
+      </h3>
+      <Link
+        to={group.path}
+        className="t-footnote shrink-0 font-medium text-[var(--tint)]"
+        ariaLabel={`Open the ${group.label} tab`}
+      >
+        See all
+      </Link>
+    </div>
+  )
+}
+
 function MetricTile({
   def, summary, color,
 }: {
@@ -289,13 +399,14 @@ function MetricTile({
   return (
     <Link
       to={`/metric/${def.key}`}
-      className="panel block rounded-[var(--r-tile)] p-3.5 transition-transform active:scale-[0.98]"
+      className="panel tile-link block rounded-[var(--r-tile)] p-3.5"
       ariaLabel={`${def.label}, ${def.format(summary.latest)}. Open details.`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className="t-footnote font-semibold" style={{ color }}>{def.label}</span>
-        <Chevron small />
-      </div>
+      {/* No chevron: at twenty-odd tiles the arrows read as a field of noise,
+          and the panel's own hover and press states carry the affordance. */}
+      <span className="t-footnote block truncate font-semibold" style={{ color }}>
+        {def.label}
+      </span>
 
       <div className="mt-1 flex items-baseline gap-1">
         <span className="tnum t-title-2 text-[var(--label)]">
@@ -329,7 +440,7 @@ function BrowseTile({ to, label, color }: { to: string; label: string; color: st
   return (
     <Link
       to={to}
-      className="flex items-center justify-between rounded-[var(--r-tile)] bg-[var(--surface-1)] px-4 py-3.5"
+      className="panel tile-link flex items-center justify-between rounded-[var(--r-tile)] px-4 py-3.5"
     >
       <span className="flex items-center gap-2.5">
         <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
@@ -340,11 +451,10 @@ function BrowseTile({ to, label, color }: { to: string; label: string; color: st
   )
 }
 
-function Chevron({ small = false }: { small?: boolean }) {
-  const s = small ? 14 : 18
+function Chevron() {
   return (
     <svg
-      width={s} height={s} viewBox="0 0 24 24" fill="none"
+      width={18} height={18} viewBox="0 0 24 24" fill="none"
       stroke="var(--label-3)" strokeWidth={2.5}
       strokeLinecap="round" strokeLinejoin="round"
       aria-hidden className="shrink-0"
