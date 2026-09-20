@@ -1,9 +1,14 @@
 @import "tailwindcss";
 
 /* ----------------------------------------------------------------- tokens
-   Light values on :root; dark values redefined under both the OS media query
-   and an explicit [data-theme="dark"] stamp, so the in-app toggle wins in
-   either direction.
+   Light values on :root; dark values redefined under [data-theme="dark"].
+
+   That stamp is the single source of truth. `ThemeProvider` always writes the
+   *resolved* theme -- "system" is resolved against the OS there, not here --
+   and a boot script in index.html writes it before first paint. Carrying a
+   second copy of the dark palette under a `prefers-color-scheme` query meant
+   keeping fifty-odd tokens in sync by hand, which is exactly the kind of edit
+   that goes wrong silently.
 
    Dark is the design the app is drawn for -- an instrument panel rather than a
    page, with the data lit against a near-black ground. Light is the same
@@ -61,59 +66,6 @@
   --r-card: 20px;
   --r-tile: 16px;
   --r-pill: 980px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) {
-    color-scheme: dark;
-
-    --bg-grouped:   #05070f;
-    --surface-1:    #0c1019;
-    --surface-2:    #121826;
-    --surface-3:    #1b2334;
-
-    --separator:    rgb(125 165 255 / 0.16);
-    --separator-opaque: #1e2740;
-
-    --label:        #eef3ff;
-    --label-2:      rgb(196 211 240 / 0.70);
-    --label-3:      rgb(176 196 232 / 0.46);
-
-    --tint:         #3ad8f5;
-    --on-tint:      #04060e;
-    --fill:         rgb(125 165 255 / 0.12);
-    --fill-2:       rgb(125 165 255 / 0.07);
-
-    /* The panel edge is a gradient rather than a flat line: brighter where a
-       light above would catch it, so a card reads as a lit surface. */
-    --edge-top:     rgb(160 205 255 / 0.30);
-    --edge-bottom:  rgb(125 165 255 / 0.06);
-    --glow:         rgb(58 216 245 / 0.30);
-    --wash-1:       rgb(76 40 190 / 0.30);
-    --wash-2:       rgb(10 110 160 / 0.26);
-    --grid-opacity: 1;
-
-    --glass:        rgb(12 16 25 / 0.62);
-    --glass-border: rgb(150 195 255 / 0.14);
-    --glass-shadow: 0 1px 0 rgb(180 215 255 / 0.06) inset,
-                    0 10px 40px rgb(0 0 0 / 0.55);
-
-    --series-1: #ff2d6f;
-    --series-2: #38bdff;
-    --series-3: #ff9d2e;
-    --series-4: #22d3c5;
-    --series-5: #c56bff;
-    --series-6: #3ddc84;
-    --series-7: #8b8cff;
-    --series-8: #d4b436;
-
-    --good:     #3ddc84;
-    --warning:  #ffd60a;
-    --serious:  #ff9f0a;
-    --critical: #ff4d6a;
-
-    --grid: rgb(125 165 255 / 0.14);
-  }
 }
 
 :root[data-theme="dark"] {
@@ -285,6 +237,32 @@ body::after {
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
+}
+
+/* A panel that is also a link. Twenty-odd summary tiles each carrying a
+   chevron turned the grid into a field of arrows, so the affordance moved into
+   the surface itself: the edge lights up and the panel lifts a little under the
+   pointer, and the same treatment shows on keyboard focus. Touch gets the
+   press state, which is what it can actually use. */
+.tile-link {
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (hover: hover) {
+  .tile-link:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--glass-shadow), 0 0 0 1px var(--separator), 0 0 22px var(--glow);
+  }
+}
+
+.tile-link:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
+
+.tile-link:active {
+  transform: scale(0.985);
 }
 
 /* Reserved for the one or two figures a screen is actually about. Applied

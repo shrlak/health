@@ -14,6 +14,8 @@ interface Ctx {
 
 const ThemeContext = createContext<Ctx | null>(null)
 
+/** Also read by the boot script in index.html, which stamps the theme before
+ *  first paint. Change it in both places or the first frame flashes. */
 const STORAGE_KEY = 'health-dashboard-theme'
 
 function readStored(): ThemeChoice {
@@ -41,11 +43,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const resolved: Resolved = choice === 'system' ? (systemDark ? 'dark' : 'light') : choice
 
+  // Always stamp the *resolved* theme, never the choice: "system" is resolved
+  // here rather than a second time in CSS, so the stylesheet carries one copy
+  // of the dark palette instead of two that have to be kept in step. The boot
+  // script in index.html writes the same attribute before first paint.
   useEffect(() => {
     const root = document.documentElement
-    if (choice === 'system') root.removeAttribute('data-theme')
-    else root.setAttribute('data-theme', choice)
-  }, [choice])
+    root.setAttribute('data-theme', resolved)
+
+    // Keep the browser chrome on the same ground as the page. Reading the
+    // token back rather than repeating the hex keeps this honest if the
+    // palette moves, and means picking Light on a dark phone no longer
+    // leaves a black status bar over a pale app.
+    const meta = document.querySelector('meta[name="theme-color"]')
+    const bg = getComputedStyle(root).getPropertyValue('--bg-grouped').trim()
+    if (meta && bg) meta.setAttribute('content', bg)
+  }, [resolved])
 
   const setChoice = useCallback((c: ThemeChoice) => {
     setChoiceState(c)

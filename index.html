@@ -4,12 +4,29 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Personal health dashboard for Apple Health and Whoop data." />
-    <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)" />
+    <!-- Light --bg-grouped. ThemeProvider rewrites this from the resolved
+         theme's own token, so the browser chrome follows the in-app toggle
+         rather than only the OS setting. -->
+    <meta name="theme-color" content="#eef1f7" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Health" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>❤️</text></svg>" />
     <title>Health Dashboard</title>
+    <script>
+      // Stamp the resolved theme before the first paint, so a dark-mode user
+      // never sees a white flash. ThemeProvider takes over once React mounts
+      // and writes the same attribute; the storage key is shared with it.
+      (function () {
+        try {
+          var stored = localStorage.getItem('health-dashboard-theme')
+          var dark = stored === 'dark' ||
+            (stored !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+        } catch (e) {
+          // Private browsing can throw on storage access; light is a fine default.
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
